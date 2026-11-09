@@ -28,6 +28,39 @@ def inject_css():
         f"""
         <style>
         .stApp {{ background-color: {BG}; }}
+        section[data-testid="stMain"] {{ color: {TEXT_DARK}; color-scheme: light; }}
+        section[data-testid="stMain"] label {{
+            color: {TEXT_DARK} !important;
+            -webkit-text-fill-color: {TEXT_DARK} !important;
+        }}
+        section[data-testid="stMain"] input,
+        section[data-testid="stMain"] textarea,
+        section[data-testid="stMain"] select {{
+            color: {TEXT_DARK} !important;
+            -webkit-text-fill-color: {TEXT_DARK} !important;
+            caret-color: {TEXT_DARK} !important;
+        }}
+        section[data-testid="stMain"] input::placeholder,
+        section[data-testid="stMain"] textarea::placeholder {{
+            color: {TEXT_MUTED} !important;
+            -webkit-text-fill-color: {TEXT_MUTED} !important;
+            opacity: 1 !important;
+        }}
+        section[data-testid="stMain"] [data-baseweb="select"] *,
+        section[data-testid="stMain"] [data-baseweb="input"] * {{
+            color: {TEXT_DARK} !important;
+            -webkit-text-fill-color: {TEXT_DARK} !important;
+        }}
+        section[data-testid="stMain"] button,
+        section[data-testid="stMain"] button:not([kind="primary"]) * {{
+            color: {TEXT_DARK} !important;
+            -webkit-text-fill-color: {TEXT_DARK} !important;
+        }}
+        section[data-testid="stMain"] button[kind="primary"],
+        section[data-testid="stMain"] button[kind="primary"] * {{
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
+        }}
         #MainMenu, footer {{ visibility: hidden; }}
         .block-container {{ padding-top: 1.5rem; padding-bottom: 3rem; max-width: 1200px; }}
 
@@ -91,10 +124,18 @@ def inject_css():
         .stButton>button[kind="primary"] {{
             background-color: {PRIMARY};
             border-color: {PRIMARY};
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
+        }}
+        .stButton>button[kind="primary"] * {{
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
         }}
         .stButton>button[kind="primary"]:hover {{
             background-color: {PRIMARY_DARK};
             border-color: {PRIMARY_DARK};
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
         }}
         hr {{ border-color: {DIVIDER}; }}
         </style>

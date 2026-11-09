@@ -15,6 +15,8 @@ def _inject_auth_css():
         <style>
         .block-container {{ max-width: none !important; padding: 0 !important; }}
         [data-testid="stAppViewContainer"] > .main {{ background: #FAF9F6; }}
+        .auth-panel-marker {{ display: block; color-scheme: light; }}
+        div[data-testid="column"]:has(.auth-panel-marker) {{ color: {TEXT_DARK}; color-scheme: light; }}
         .auth-layout {{ min-height: 100vh; }}
         .auth-brand {{
             min-height: 100vh; box-sizing: border-box; padding: 3.4rem 3.5rem;
@@ -66,6 +68,34 @@ def _inject_auth_css():
         .first-access {{ margin: 2.2rem 0 0.5rem; padding-top: 1.4rem; border-top: 1px solid {BORDER}; }}
         .first-access p {{ color: {TEXT_MUTED}; font-size: 0.82rem; margin: 0 0 0.7rem; }}
         div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stTextInput"] input {{ background: #F5F2EB; border-color: {BORDER}; }}
+        div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stTextInput"] input,
+        div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stTextInput"] input:focus {{
+            color: {TEXT_DARK} !important;
+            -webkit-text-fill-color: {TEXT_DARK} !important;
+            caret-color: {TEXT_DARK} !important;
+        }}
+        div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stTextInput"] input::placeholder {{
+            color: {TEXT_MUTED} !important;
+            -webkit-text-fill-color: {TEXT_MUTED} !important;
+            opacity: 1 !important;
+        }}
+        div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stTextInput"] label,
+        div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stTextInput"] label *,
+        div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stCheckbox"] label,
+        div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stCheckbox"] label * {{
+            color: {TEXT_DARK} !important;
+            -webkit-text-fill-color: {TEXT_DARK} !important;
+        }}
+        div[data-testid="column"]:has(.auth-panel-marker) .stButton button[kind="primary"],
+        div[data-testid="column"]:has(.auth-panel-marker) [data-testid="stFormSubmitButton"] button {{
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
+        }}
+        div[data-testid="column"]:has(.auth-panel-marker) .stButton button[kind="primary"] *,
+        div[data-testid="column"]:has(.auth-panel-marker) [data-testid="stFormSubmitButton"] button * {{
+            color: #FFFFFF !important;
+            -webkit-text-fill-color: #FFFFFF !important;
+        }}
         div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stForm"] {{ border: 0; padding: 0; }}
         div[data-testid="column"]:has(.auth-panel-marker) .stButton button,
         div[data-testid="column"]:has(.auth-panel-marker) [data-testid="stFormSubmitButton"] button {{ min-height: 2.6rem; }}

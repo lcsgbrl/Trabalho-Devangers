@@ -2,7 +2,7 @@
 """
 views/usuarios_demo_view.py
 
-View de exemplo para gerenciar usuários.
+View para gerenciar usuários.
 Usa Controller para toda lógica, nunca acessa Firebase direto!
 """
 
@@ -14,7 +14,7 @@ from controllers import usuario_controller
 def render():
     """Renderiza página de gerenciamento de usuários"""
     
-    st.title("👥 Gerenciar Usuários (Demo)")
+    st.title("👥 Gerenciar Usuários")
     st.markdown("---")
     
     # SEÇÃO 1: Criar novo usuário

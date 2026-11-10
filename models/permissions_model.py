@@ -7,7 +7,7 @@ permissão, sem tocar em st.session_state. Quem decide "qual é o papel do
 usuário logado" é responsabilidade do Controller (auth_controller).
 """
 
-from models import seed_data as data
+from models import domain_data as data
 
 
 def get_permissions(role: str) -> dict:

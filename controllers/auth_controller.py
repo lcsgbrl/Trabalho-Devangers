@@ -55,7 +55,12 @@ def fazer_login(email: str):
     if sucesso:
         # Obter perfil e armazenar em sessão
         perfil = auth_model.obter_perfil_usuario(uid)
-        
+        perfil["role"] = {
+            "usuario": "Aluno",
+            "professor": "Professor",
+            "admin": "Administrador",
+        }.get(perfil.get("role"), perfil.get("role"))
+
         st.session_state.user_uid = uid
         st.session_state.user_email = email
         st.session_state.user_nome = perfil.get('nome')
@@ -65,22 +70,6 @@ def fazer_login(email: str):
         session_controller.goto("menu")
     
     return sucesso, mensagem
-
-
-def login_demo(user: dict):
-    """Entra com um perfil local de demonstração, sem exigir conta Firebase."""
-    init_auth_state()
-    demo_profile = dict(user)
-    demo_profile["uid"] = f"demo:{user['email']}"
-    demo_profile["ativo"] = True
-
-    st.session_state.user_uid = demo_profile["uid"]
-    st.session_state.user_email = demo_profile["email"]
-    st.session_state.user_nome = demo_profile["nome"]
-    st.session_state.user_role = demo_profile["role"]
-    st.session_state.user_perfil = demo_profile
-    st.session_state.current_user = demo_profile
-    session_controller.goto("menu")
 
 
 def fazer_registro(email: str, senha: str, nome: str):
@@ -138,21 +127,20 @@ def atualizar_perfil(dados: dict):
     return sucesso, mensagem
 
 
+def atualizar_senha(nova_senha: str):
+    """Atualiza a senha da conta autenticada no Firebase Authentication."""
+    if not is_logged_in():
+        return False, "Usuário não está logado"
+
+    return auth_model.atualizar_senha(st.session_state.user_uid, nova_senha)
+
+
 def update_current_user_profile(nome: str, email: str):
     """Atualiza nome e e-mail no perfil usado pelas configurações."""
     nome = nome.strip()
     email = email.strip()
     if not nome or not email:
         return "Nome e e-mail são obrigatórios."
-
-    user = current_user()
-    if user.get('uid', '').startswith('demo:'):
-        user.update({'nome': nome, 'email': email})
-        st.session_state.user_nome = nome
-        st.session_state.user_email = email
-        st.session_state.user_perfil = user
-        st.session_state.current_user = user
-        return None
 
     sucesso, mensagem = atualizar_perfil({'nome': nome, 'email': email})
     if sucesso:

@@ -6,7 +6,7 @@ from datetime import date, datetime, time
 import streamlit as st
 
 from controllers import auth_controller, reservas_controller as rc
-from models import seed_data as data
+from models import domain_data as data
 from views.components import TEXT_MUTED, badge_html
 
 
@@ -111,7 +111,14 @@ def solicitacao_modal():
 
     professor = ""
     if is_aluno:
-        professor = st.selectbox("Professor responsável *", [""] + data.PROFESSORS)
+        professores = [
+            member["nome"] for member in st.session_state.members
+            if member.get("funcao") == "Professor" and member.get("status") == "Ativo"
+        ]
+        if professores:
+            professor = st.selectbox("Professor responsável *", [""] + professores)
+        else:
+            st.info("Não há professores ativos cadastrados para receber solicitações.")
 
     obs = st.text_area("Observações", placeholder="Descreva o motivo da solicitação…" if is_aluno else "Informações adicionais…")
 

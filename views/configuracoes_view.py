@@ -4,11 +4,8 @@
 import streamlit as st
 
 from controllers import auth_controller
-from models import seed_data as data
+from models import domain_data as data
 from views.components import PRIMARY, badge_html
-
-MOCK_CURRENT_PASSWORD = "senha123"
-
 
 def render():
     user = auth_controller.current_user()
@@ -50,23 +47,19 @@ def render():
     st.write("")
     with st.form("password_form"):
         st.markdown("###### Segurança")
-        st.caption("Altere sua senha de acesso. A nova senha não pode ser igual à atual. "
-                    "(dica: a senha simulada atual é `senha123`)")
-        atual = st.text_input("Senha atual *", type="password")
+        st.caption("Altere sua senha de acesso.")
         nova = st.text_input("Nova senha *", type="password", placeholder="Mínimo 6 caracteres")
         confirmar = st.text_input("Confirmar nova senha *", type="password")
         if st.form_submit_button("Alterar senha", type="primary"):
-            if not atual:
-                st.error("Informe sua senha atual.")
-            elif atual != MOCK_CURRENT_PASSWORD:
-                st.error("Senha atual incorreta.")
-            elif not nova:
+            if not nova:
                 st.error("Informe a nova senha.")
             elif len(nova) < 6:
                 st.error("A nova senha deve ter pelo menos 6 caracteres.")
-            elif nova == atual:
-                st.error("A nova senha não pode ser igual à senha atual.")
             elif nova != confirmar:
                 st.error("A confirmação não coincide com a nova senha.")
             else:
-                st.toast("Senha alterada com sucesso!", icon="✅")
+                sucesso, mensagem = auth_controller.atualizar_senha(nova)
+                if sucesso:
+                    st.success(mensagem)
+                else:
+                    st.error(mensagem)

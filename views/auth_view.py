@@ -4,8 +4,7 @@
 import streamlit as st
 
 from controllers import auth_controller
-from models import seed_data as data
-from views.components import BORDER, PRIMARY, TEXT_DARK, TEXT_MUTED, badge_html
+from views.components import BORDER, PRIMARY, TEXT_DARK, TEXT_MUTED
 
 
 def _inject_auth_css():
@@ -52,19 +51,6 @@ def _inject_auth_css():
         }}
         .auth-card-title {{ color: {TEXT_DARK}; font-size: 1.55rem; font-weight: 800; margin: 0; }}
         .auth-card-subtitle {{ color: {TEXT_MUTED}; font-size: 0.9rem; margin: 0.25rem 0 1.5rem; }}
-        .auth-divider {{
-            display: flex; align-items: center; gap: 10px; color: {TEXT_MUTED};
-            font-size: 0.75rem; margin: 1.1rem 0;
-        }}
-        .auth-divider::before, .auth-divider::after {{ content: ""; flex: 1; height: 1px; background: {BORDER}; }}
-        .demo-avatar {{
-            width: 34px; height: 34px; border-radius: 10px; display: flex;
-            align-items: center; justify-content: center; color: #FFFFFF;
-            font-weight: 700; font-size: 0.78rem;
-        }}
-        .demo-name {{ color: {TEXT_DARK}; font-weight: 700; font-size: 0.88rem; margin: 0; }}
-        .demo-sub {{ color: {TEXT_MUTED}; font-size: 0.76rem; margin: 0; }}
-        .demo-section {{ margin-top: 2rem; }}
         .first-access {{ margin: 2.2rem 0 0.5rem; padding-top: 1.4rem; border-top: 1px solid {BORDER}; }}
         .first-access p {{ color: {TEXT_MUTED}; font-size: 0.82rem; margin: 0 0 0.7rem; }}
         div[data-testid="column"]:has(.auth-panel-marker) div[data-testid="stTextInput"] input {{ background: #F5F2EB; border-color: {BORDER}; }}
@@ -183,31 +169,7 @@ def _render_registration():
         st.rerun()
 
 
-def _render_demo_users():
-    st.markdown('<div class="auth-divider demo-section">Entrar como — Demonstração</div>', unsafe_allow_html=True)
-    cols = st.columns(2)
-    for index, user in enumerate(data.DEMO_USERS):
-        role_color = data.ROLE_COLORS[user["role"]]
-        initials = user.get("initials") or "".join(word[0] for word in user["nome"].split()[:2]).upper()
-        with cols[index % 2]:
-            with st.container(border=True):
-                first, second = st.columns([1, 4])
-                first.markdown(
-                    f'<div class="demo-avatar" style="background:{role_color["dot"]}">{initials}</div>',
-                    unsafe_allow_html=True,
-                )
-                with second:
-                    st.markdown(f'<p class="demo-name">{user["nome"]}</p>', unsafe_allow_html=True)
-                    st.markdown(
-                        badge_html(user["role"], role_color["bg"], role_color["text"]),
-                        unsafe_allow_html=True,
-                    )
-                if user.get("nucleo"):
-                    st.markdown(f'<p class="demo-sub">Núcleo {user["nucleo"]}</p>', unsafe_allow_html=True)
-                if st.button("Entrar", key=f"demo_{index}", use_container_width=True):
-                    auth_controller.login_demo(user)
-                    st.rerun()
-
+def _render_first_access():
     st.markdown(
         '<div class="first-access"><div class="auth-label">Primeiro acesso</div>'
         '<p>Ainda não possui uma conta institucional?</p></div>',
@@ -230,7 +192,7 @@ def render():
         st.markdown('<span class="auth-panel-marker"></span>', unsafe_allow_html=True)
         if st.session_state.get("auth_tab", "login") == "login":
             _render_login()
-            _render_demo_users()
+            _render_first_access()
         else:
             _render_registration()
 

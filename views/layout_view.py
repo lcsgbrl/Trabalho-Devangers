@@ -5,7 +5,7 @@ Equivalente a components/Sidebar.tsx + components/ProtectedRoute.tsx."""
 import streamlit as st
 
 from controllers import auth_controller, session_controller
-from models import seed_data as data
+from models import domain_data as data
 
 # Itens de navegação (equivalente a Sidebar.tsx navItems)
 NAV_ITEMS = [

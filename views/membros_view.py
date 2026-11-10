@@ -4,7 +4,7 @@
 import streamlit as st
 
 from controllers import academico_controller, auth_controller, membros_controller as mc
-from models import seed_data as data
+from models import domain_data as data
 from views.components import badge_html
 
 
@@ -17,8 +17,7 @@ def member_modal(member=None):
     c1, c2 = st.columns(2)
     funcao = c1.selectbox("Função", data.FUNCOES,
                            index=data.FUNCOES.index(member["funcao"]) if editing else 3)
-    depto = c2.selectbox("Departamento", data.DEPTOS,
-                          index=data.DEPTOS.index(member["depto"]) if editing and member["depto"] in data.DEPTOS else 0)
+    depto = c2.text_input("Departamento", value=member.get("depto", "") if editing else "")
     nucleo_opts = ["— Global (sem restrição) —"] + [n["nome"] for n in academico_controller.list_nucleos() if n["ativo"]]
     cur_nucleo = member.get("nucleo") if editing else None
     nucleo_sel = st.selectbox("Núcleo", nucleo_opts,
@@ -122,7 +121,8 @@ def render():
         search = c1.text_input("Buscar por nome ou e-mail", key="mem_search")
         filtro_funcao = c2.selectbox("Função", ["Todos"] + data.FUNCOES, key="mem_funcao")
         filtro_status = c3.selectbox("Status", ["Todos", "Ativo", "Inativo", "Pendente"], key="mem_status")
-        filtro_nucleo = c4.selectbox("Núcleo", ["Todos", "Global"] + data.NUCLEOS, key="mem_nucleo") if is_admin else "Todos"
+        nucleos = [n["nome"] for n in academico_controller.list_nucleos() if n["ativo"]]
+        filtro_nucleo = c4.selectbox("Núcleo", ["Todos", "Global"] + nucleos, key="mem_nucleo") if is_admin else "Todos"
 
         filtered = mc.filter_members(search, filtro_funcao, filtro_status, filtro_nucleo)
 

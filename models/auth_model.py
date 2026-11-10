@@ -73,7 +73,7 @@ def fazer_login(email: str):
     if not usuario:
         return False, None, "❌ Usuário não encontrado"
     
-    if not usuario.email_verified and usuario.email != "admin@sga.local":
+    if not usuario.email_verified:
         return False, None, "⚠️ Email não verificado. Verifique seu email"
     
     # Obter dados do perfil no Firestore
@@ -117,6 +117,14 @@ def atualizar_perfil(uid: str, dados: dict):
     
     except Exception as e:
         return False, f"❌ Erro: {str(e)}"
+
+
+def atualizar_senha(uid: str, nova_senha: str):
+    """Atualiza a senha da conta no Firebase Authentication."""
+    if not auth_utils.validar_senha(nova_senha):
+        return False, "Senha deve ter no mínimo 6 caracteres"
+
+    return auth_utils.atualizar_senha(uid, nova_senha)
 
 
 def deletar_conta_completa(uid: str):

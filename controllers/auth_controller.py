@@ -38,7 +38,7 @@ def is_logged_in():
     return st.session_state.get('user_uid') is not None
 
 
-def fazer_login(email: str):
+def fazer_login(email: str, senha: str):
     """
     Processa login do usuário
     
@@ -47,10 +47,10 @@ def fazer_login(email: str):
     """
     init_auth_state()
     
-    if not email:
-        return False, "Email é obrigatório"
+    if not email or not senha:
+        return False, "E-mail e senha são obrigatórios"
     
-    sucesso, uid, mensagem = auth_model.fazer_login(email)
+    sucesso, uid, mensagem = auth_model.fazer_login(email, senha)
     
     if sucesso:
         # Obter perfil e armazenar em sessão
@@ -73,22 +73,15 @@ def fazer_login(email: str):
 
 
 def fazer_registro(email: str, senha: str, nome: str):
-    """
-    Processa registro de novo usuário
-    
-    Returns:
-        tuple: (sucesso: bool, mensagem: str)
-    """
     init_auth_state()
-    
-    sucesso, uid, mensagem = auth_model.criar_nova_conta(email, senha, nome)
-    
-    if sucesso:
-        st.session_state.user_uid = uid
-        st.session_state.user_email = email
-        st.session_state.user_nome = nome
-        st.session_state.user_role = 'usuario'
-    
+
+    sucesso, uid, mensagem = auth_model.criar_nova_conta(
+        email, senha, nome
+    )
+
+    # O usuário não será conectado automaticamente.
+    # Ele precisa confirmar o e-mail e depois fazer login.
+
     return sucesso, mensagem
 
 
@@ -233,5 +226,24 @@ def obter_info_usuario():
 
 
 def current_user():
-    """Retorna o perfil compatível com as views legadas do aplicativo."""
-    return st.session_state.get('current_user') or st.session_state.get('user_perfil') or {}
+    """Retorna o perfil compatível com as views do aplicativo."""
+
+    perfil = (
+        st.session_state.get('current_user')
+        or st.session_state.get('user_perfil')
+        or {}
+    )
+
+    nome = perfil.get('nome') or perfil.get('name') or 'Usuário'
+
+    partes = nome.split()
+
+    iniciais = ''.join(
+        parte[0].upper()
+        for parte in partes[:2]
+    )
+
+    perfil['name'] = nome
+    perfil['initials'] = iniciais
+
+    return perfil

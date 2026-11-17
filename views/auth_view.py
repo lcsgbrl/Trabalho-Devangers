@@ -121,21 +121,21 @@ def _render_login():
 
     with st.form("login_form"):
         email = st.text_input("E-mail", placeholder="seu@email.com")
-        st.text_input("Senha", type="password", placeholder="Sua senha")
+        senha = st.text_input("Senha", type="password", placeholder="Sua senha")
         st.checkbox("Lembrar de mim")
         submitted = st.form_submit_button("Entrar", type="primary", use_container_width=True)
 
     if submitted:
-        if not email.strip():
-            st.error("Preencha o e-mail.")
+        if not email.strip() or not senha:
+            st.error("Preencha o e-mail e a senha.")
         else:
             with st.spinner("Verificando..."):
-                sucesso, mensagem = auth_controller.fazer_login(email.strip())
-            if sucesso:
-                st.success(mensagem)
-                st.rerun()
-            else:
-                st.error(mensagem)
+                sucesso, mensagem = auth_controller.fazer_login(email.strip(), senha)
+                if sucesso:
+                    st.success(mensagem)
+                    st.rerun()
+                else:
+                    st.error(mensagem)
 
 def _render_registration():
     st.markdown('<div class="auth-label">Novo cadastro</div>', unsafe_allow_html=True)

@@ -6,7 +6,124 @@ Utilitários para autenticação com Firebase Authentication.
 
 import streamlit as st
 import firebase_admin
+import requests
 from firebase_admin import auth, credentials
+
+
+def autenticar_usuario(email: str, senha: str):
+    """
+    Autentica o usuário pelo Firebase Authentication.
+    """
+    try:
+        api_key = st.secrets["firebase"]["api_key"]
+
+        url = (
+            "https://identitytoolkit.googleapis.com/v1/"
+            f"accounts:signInWithPassword?key={api_key}"
+        )
+
+        dados = {
+            "email": email,
+            "password": senha,
+            "returnSecureToken": True
+        }
+
+        resposta = requests.post(url, json=dados, timeout=15)
+        resultado = resposta.json()
+
+        if resposta.status_code != 200:
+            erro = resultado.get("error", {}).get("message", "")
+
+            mensagens = {
+                "EMAIL_NOT_FOUND": "E-mail ou senha incorretos.",
+                "INVALID_PASSWORD": "E-mail ou senha incorretos.",
+                "INVALID_LOGIN_CREDENTIALS": "E-mail ou senha incorretos.",
+                "USER_DISABLED": "Esta conta está desativada.",
+                "TOO_MANY_ATTEMPTS_TRY_LATER": (
+                    "Muitas tentativas. Aguarde um pouco e tente novamente."
+                ),
+                "API_KEY_INVALID": "A chave de configuração do Firebase é inválida."
+            }
+
+            return False, None, mensagens.get(
+                erro, "Não foi possível realizar o login."
+            )
+
+        uid = resultado.get("localId")
+
+        if not uid:
+            return False, None, "Não foi possível identificar o usuário."
+
+        return True, uid, "Autenticação realizada com sucesso."
+
+    except KeyError:
+        return False, None, "Configuração da API Key não encontrada."
+
+    except requests.exceptions.Timeout:
+        return False, None, "Tempo de conexão esgotado. Tente novamente."
+
+    except requests.exceptions.RequestException:
+        return False, None, "Erro de comunicação com o Firebase."
+
+    except Exception as e:
+        print("ERRO REAL NA AUTENTICAÇÃO:", type(e).__name__, str(e))
+        return False, None, "Não foi possível autenticar o usuário."
+
+
+def enviar_verificacao_email(email: str, senha: str):
+    """
+    Envia um e-mail de confirmação pelo Firebase Authentication.
+    """
+    try:
+        api_key = st.secrets["firebase"]["api_key"]
+
+        # Primeiro, obter um token de autenticação
+        url_login = (
+            "https://identitytoolkit.googleapis.com/v1/"
+            f"accounts:signInWithPassword?key={api_key}"
+        )
+
+        dados_login = {
+            "email": email,
+            "password": senha,
+            "returnSecureToken": True
+        }
+
+        resposta_login = requests.post(
+            url_login,
+            json=dados_login,
+            timeout=15
+        )
+
+        if resposta_login.status_code != 200:
+            return False, "Não foi possível preparar o envio do e-mail."
+
+        id_token = resposta_login.json().get("idToken")
+
+        # Depois, solicitar o envio do e-mail de verificação
+        url_verificacao = (
+            "https://identitytoolkit.googleapis.com/v1/"
+            f"accounts:sendOobCode?key={api_key}"
+        )
+
+        dados_verificacao = {
+            "requestType": "VERIFY_EMAIL",
+            "idToken": id_token
+        }
+
+        resposta = requests.post(
+            url_verificacao,
+            json=dados_verificacao,
+            timeout=15
+        )
+
+        if resposta.status_code == 200:
+            return True, "E-mail de confirmação enviado com sucesso."
+
+        return False, "Não foi possível enviar o e-mail de confirmação."
+
+    except Exception:
+        return False, "Erro ao comunicar com o Firebase."
 
 
 def registrar_usuario(email: str, senha: str):

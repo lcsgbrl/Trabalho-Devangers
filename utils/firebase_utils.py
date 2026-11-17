@@ -30,7 +30,6 @@ def init_firestore():
                 )
             
             cred = credentials.Certificate(key_path)
-            print(f"✅ Firebase conectado com sucesso: {os.path.abspath(key_path)}")
         
         firebase_admin.initialize_app(cred)
     

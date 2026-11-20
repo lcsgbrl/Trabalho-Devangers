@@ -24,13 +24,13 @@ NAV_ITEMS = [
     },
     {
         "key": "academico",
-        "label": "Acadêmico",
+        "label": "Estrutura Acadêmica",
         "icon": ":material/school:",
         "roles": ["Administrador", "Coordenador"],
     },
     {
         "key": "membros",
-        "label": "Membros",
+        "label": "Organização de Membros",
         "icon": ":material/group:",
         "roles": ["Administrador"],
     },

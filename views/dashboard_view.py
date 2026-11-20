@@ -127,7 +127,7 @@ def admin_coord_dashboard(solicitacoes, salas, pending_for_me, is_admin):
             df = pd.DataFrame(d["room_stats"]).sort_values("reservas", ascending=True)
             st.plotly_chart(bar_chart(df["sala"], df["reservas"], horizontal=True), use_container_width=True)
         else:
-            st.info("Cadastre ambientes para visualizar este indicador.")
+            st.error("Cadastre ambientes para visualizar este indicador.")
 
     with col4:
         st.markdown("###### Taxa de ocupação dos ambientes")
@@ -137,7 +137,7 @@ def admin_coord_dashboard(solicitacoes, salas, pending_for_me, is_admin):
                 st.write(f"**{r['sala']}** — {r['taxa']}%")
                 st.progress(r["taxa"] / 100)
         else:
-            st.info("Cadastre ambientes para visualizar a ocupação.")
+            st.error("Cadastre ambientes para visualizar a ocupação.")
 
     st.markdown("###### Reservas Recentes")
     st.dataframe(

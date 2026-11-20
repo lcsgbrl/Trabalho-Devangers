@@ -76,13 +76,27 @@ def toggle_member_status(members: list, member_id: int) -> None:
             return
 
 
+
 def update_member(members: list, member_id: int, data_new: dict) -> None:
+    dados_atualizados = dict(data_new)
+
+    if "email" in dados_atualizados:
+        email = dados_atualizados["email"].strip()
+
+        if email_exists(members, email, exclude_id=member_id):
+            raise ValueError("Este e-mail já está cadastrado.")
+
+        dados_atualizados["email"] = email
+
     for m in members:
         if m["id"] == member_id:
-            m.update(data_new)
-            if "nome" in data_new:
-                m["initials"] = make_initials(data_new["nome"])
+            m.update(dados_atualizados)
+
+            if "nome" in dados_atualizados:
+                m["initials"] = make_initials(dados_atualizados["nome"])
+
             return
+
 
 
 # ── Consultas / filtros ──────────────────────────────────────────────────────

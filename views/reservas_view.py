@@ -278,10 +278,18 @@ def render():
                         ac1, ac2 = st.columns(2)
                         if ac1.button("Editar", key=f"editsala_{s['id']}", use_container_width=True):
                             sala_modal(s)
-                        manut_label = "✓ Reativar" if s["status"] == "Manutenção" else "⚠ Manutenção"
-                        if ac2.button(manut_label, key=f"manut_{s['id']}", use_container_width=True):
+                        
+                        if s["status"] == "Disponível":
+                            manut_label = "⚠ Manutenção"
+                        elif s["status"] == "Manutenção":
+                            manut_label = "✓ Reativar"
+                        else:
+                            manut_label = "✓ Ativar"
+
+                        if manut_label and ac2.button(manut_label, key=f"manut_{s['id']}", use_container_width=True):
                             rc.toggle_manutencao(s["id"])
                             st.rerun()
+
         if is_admin:
             if st.button("+ Nova Sala", use_container_width=True):
                 sala_modal()

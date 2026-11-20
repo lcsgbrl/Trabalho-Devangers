@@ -128,23 +128,31 @@ def solicitacao_modal():
     if st.button(btn_label, type="primary", disabled=not can_submit, use_container_width=True):
         tipo = "aluno_para_professor" if is_aluno else ("auth_required" if needs_auth else "direta")
         status_ini = "Pendente" if is_aluno else ("Em análise" if needs_auth else "Aprovado")
-        rc.add_solicitacao(
-            tipo=tipo, sala=sala_sel["nome"], bloco=f'{sala_sel["bloco"]} — {sala_sel["numero"]}',
-            data=data_res.strftime("%d/%m/%Y"), inicio=inicio.strftime("%H:%M"), fim=fim.strftime("%H:%M"),
-            pessoas=int(pessoas), solicitante=user["nome"], solicitanteRole=user["role"],
-            nucleoSolicitante=user.get("nucleo"),
-            professorResponsavel=professor if is_aluno else None,
-            status=status_ini, motivo=obs,
-        )
-        if is_aluno:
-            st.success("Solicitação enviada! Sua solicitação foi enviada ao professor responsável e aguarda aprovação.")
-        elif needs_auth:
-            st.success("Aguardando autorização — sua solicitação foi encaminhada ao coordenador.")
+       
+        try:
+            rc.add_solicitacao(
+                tipo=tipo, sala=sala_sel["nome"], bloco=f'{sala_sel["bloco"]} — {sala_sel["numero"]}',
+                data=data_res.strftime("%d/%m/%Y"), inicio=inicio.strftime("%H:%M"), fim=fim.strftime("%H:%M"),
+                pessoas=int(pessoas), solicitante=user["nome"], solicitanteRole=user["role"],
+                solicitanteUid=st.session_state.get("user_uid"),
+                nucleoSolicitante=user.get("nucleo"),
+                professorResponsavel=professor if is_aluno else None,
+                status=status_ini, motivo=obs,
+            )
+        except ValueError as erro:
+            st.error(str(erro))
         else:
-            st.success("Reserva confirmada com sucesso!")
-        st.balloons()
-        if st.button("Fechar"):
-            st.rerun()
+            if is_aluno:
+                st.success("Solicitação enviada! Sua solicitação foi enviada ao professor responsável e aguarda aprovação.")
+            elif needs_auth:
+                st.success("Aguardando autorização — sua solicitação foi encaminhada ao coordenador.")
+            else:
+                st.success("Reserva confirmada com sucesso!")
+
+            st.balloons()
+            if st.button("Fechar"):
+                st.rerun()
+
 
 
 @st.dialog("Recusar solicitação")
@@ -208,7 +216,9 @@ def render():
     is_admin = auth_controller.is_admin()
 
     salas = rc.list_salas()
-    minhas = rc.minhas_solicitacoes(user["nome"])
+    minhas = rc.minhas_solicitacoes(
+        user["nome"], st.session_state.get("user_uid")
+    )
     pend_professor = rc.pendentes_para_professor(user["nome"])
     coord_nucleo = user.get("nucleo")
     todas_auth_coord = rc.auth_requests_do_nucleo(coord_nucleo)

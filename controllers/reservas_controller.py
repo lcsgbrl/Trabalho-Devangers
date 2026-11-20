@@ -59,8 +59,10 @@ def cancelar_solicitacao(sol_id: int) -> None:
     solicitacao_model.cancelar_solicitacao(st.session_state.solicitacoes, sol_id)
 
 
-def minhas_solicitacoes(nome_usuario: str) -> list:
-    return solicitacao_model.minhas_solicitacoes(st.session_state.solicitacoes, nome_usuario)
+def minhas_solicitacoes(nome_usuario: str, usuario_uid: str = None) -> list:
+    return solicitacao_model.minhas_solicitacoes(
+        st.session_state.solicitacoes, nome_usuario, usuario_uid
+    )
 
 
 def pendentes_para_professor(nome_professor: str) -> list:

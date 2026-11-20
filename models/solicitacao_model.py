@@ -79,8 +79,22 @@ def cancelar_solicitacao(solicitacoes: list, sol_id: int) -> None:
 
 # ── Consultas ─────────────────────────────────────────────────────────────────
 
-def minhas_solicitacoes(solicitacoes: list, nome_usuario: str) -> list:
-    return [s for s in solicitacoes if s["solicitante"] == nome_usuario]
+def minhas_solicitacoes(
+    solicitacoes: list, nome_usuario: str, usuario_uid: str | None = None
+) -> list:
+    """Retorna as reservas do usuário, priorizando o UID quando disponível.
+
+    Reservas antigas, criadas antes do armazenamento do UID, continuam sendo
+    localizadas pelo nome para manter a compatibilidade com os dados existentes.
+    """
+    if usuario_uid:
+        return [
+            s for s in solicitacoes
+            if s.get("solicitanteUid") == usuario_uid
+            or (not s.get("solicitanteUid") and s.get("solicitante") == nome_usuario)
+        ]
+
+    return [s for s in solicitacoes if s.get("solicitante") == nome_usuario]
 
 
 def pendentes_para_professor(solicitacoes: list, nome_professor: str) -> list:

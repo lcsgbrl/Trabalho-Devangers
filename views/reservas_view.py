@@ -166,7 +166,7 @@ def recusar_modal(sol):
 
 # ── Cards ─────────────────────────────────────────────────────────────────────
 
-def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user):
+def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user, contexto):
     st_style = data.STATUS_SOL_STYLE.get(s["status"], data.STATUS_SOL_STYLE["Pendente"])
     is_pending = s["status"] in ("Pendente", "Em análise")
     with st.container(border=True):
@@ -195,7 +195,7 @@ def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user):
 
         bc1, bc2, bc3 = st.columns(3)
         if is_pending and can_approve:
-            if bc1.button("Aprovar", key=f"aprov_{s['id']}", use_container_width=True):
+            if bc1.button("Aprovar", key=f"aprov_{contexto}_{s['id']}", use_container_width=True):
                
                 try:
                     rc.aprovar_solicitacao(s["id"], current_user)
@@ -205,10 +205,10 @@ def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user):
                     st.error(str(erro))
 
         if is_pending and can_reject:
-            if bc2.button("Recusar", key=f"rec_{s['id']}", use_container_width=True):
+            if bc2.button("Recusar",key=f"rec_{contexto}_{s['id']}", use_container_width=True):
                 recusar_modal(s)
         if can_cancel and s["status"] != "Cancelado":
-            if bc3.button("Cancelar", key=f"canc_{s['id']}", use_container_width=True):
+            if bc3.button("Cancelar",key=f"canc_{contexto}_{s['id']}", use_container_width=True):
                 rc.cancelar_solicitacao(s["id"])
                 st.rerun()
 
@@ -302,10 +302,9 @@ def render():
             cols = st.columns(2)
             for i, s in enumerate(minhas):
                 with cols[i % 2]:
-                    solicitacao_card(s, can_approve=False, can_reject=False,
-                                      can_cancel=s["status"] not in ("Cancelado", "Recusado"),
-                                      current_user=user["nome"])
-
+                   solicitacao_card(s, can_approve=False, can_reject=False,
+                  can_cancel=s["status"] not in ("Cancelado", "Recusado"),
+                  current_user=user["nome"], contexto="minhas")
     # ── Aprovações / Todas ──
     if show_aprov:
         with tabs[2]:
@@ -316,7 +315,8 @@ def render():
                 for i, s in enumerate(todas):
                     with cols[i % 2]:
                         solicitacao_card(s, can_approve=False, can_reject=False,
-                                          can_cancel=s["status"] != "Cancelado", current_user=user["nome"])
+                  can_cancel=s["status"] != "Cancelado",
+                  current_user=user["nome"], contexto="todas")
             elif is_professor:
                 minhas_alunos = rc.solicitacoes_de_alunos_do_professor(user["nome"])
                 st.markdown(f"**Solicitações de Alunos** " +
@@ -328,8 +328,9 @@ def render():
                     for i, s in enumerate(minhas_alunos):
                         with cols[i % 2]:
                             can_act = s["status"] in ("Pendente", "Em análise")
-                            solicitacao_card(s, can_approve=can_act, can_reject=can_act,
-                                              can_cancel=False, current_user=user["nome"])
+                        solicitacao_card(s, can_approve=can_act, can_reject=can_act,
+                  can_cancel=False, current_user=user["nome"],
+                  contexto="professor")
             elif is_coordenador:
                 label = f"**Solicitações que exigem autorização**"
                 if coord_nucleo:
@@ -345,4 +346,5 @@ def render():
                         with cols[i % 2]:
                             can_act = s["status"] in ("Pendente", "Em análise")
                             solicitacao_card(s, can_approve=can_act, can_reject=can_act,
-                                              can_cancel=False, current_user=user["nome"])
+                  can_cancel=False, current_user=user["nome"],
+                  contexto="coordenador")

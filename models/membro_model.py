@@ -11,9 +11,22 @@ def make_initials(nome: str) -> str:
     words = [w for w in nome.split(" ") if w and w[0].isalpha()]
     return "".join(w[0] for w in words[:2]).upper()
 
+def email_exists(members: list, email: str, exclude_id: int = None) -> bool:
+    email = email.strip().lower()
+
+    for member in members:
+        if member.get("email", "").strip().lower() == email:
+            if member["id"] != exclude_id:
+                return True
+
+    return False
 
 def add_member_directly(members: list, next_id: int, m: dict) -> tuple[dict, int]:
+    if email_exists(members, m["email"]):
+        raise ValueError("Este e-mail já está cadastrado.")
+
     novo = dict(m)
+    novo["email"] = novo["email"].strip()
     novo["id"] = next_id
     novo["initials"] = make_initials(novo["nome"])
     novo["source"] = "existing"

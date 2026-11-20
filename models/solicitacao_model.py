@@ -12,6 +12,16 @@ from datetime import datetime
 SLOTS = [("08:00", "10:00"), ("10:00", "12:00"), ("12:00", "14:00"),
          ("14:00", "16:00"), ("16:00", "18:00"), ("18:00", "20:00")]
 
+def _validar_horario(inicio: str, fim: str) -> None:
+    """Valida os horários e garante que o término seja posterior ao início."""
+    try:
+        inicio_hora = datetime.strptime(inicio, "%H:%M").time()
+        fim_hora = datetime.strptime(fim, "%H:%M").time()
+    except (TypeError, ValueError):
+        raise ValueError("Informe horários válidos no formato HH:MM.")
+
+    if fim_hora <= inicio_hora:
+        raise ValueError("O horário de término deve ser posterior ao de início.")
 
 def _now_str() -> str:
     return datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -145,8 +155,16 @@ def disponibilidade_da_sala(solicitacoes: list, sala_nome: str, data_ptbr: str) 
     return rows
 
 
-def tem_conflito(solicitacoes: list, sala: str, data: str, inicio: str, fim: str, ignorar_id: int | None = None) -> bool:
-    """Verifica se existe outra reserva no mesmo ambiente e horário."""
+def tem_conflito(
+    solicitacoes: list,
+    sala: str,
+    data: str,
+    inicio: str,
+    fim: str,
+    ignorar_id: int | None = None,
+) -> bool:
+    """Verifica sobreposição com outra solicitação ativa da mesma sala e data."""
+    _validar_horario(inicio, fim)
     inicio_novo = datetime.strptime(inicio, "%H:%M").time()
     fim_novo = datetime.strptime(fim, "%H:%M").time()
 

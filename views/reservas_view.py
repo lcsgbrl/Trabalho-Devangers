@@ -196,8 +196,14 @@ def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user):
         bc1, bc2, bc3 = st.columns(3)
         if is_pending and can_approve:
             if bc1.button("Aprovar", key=f"aprov_{s['id']}", use_container_width=True):
-                rc.aprovar_solicitacao(s["id"], current_user)
-                st.rerun()
+               
+                try:
+                    rc.aprovar_solicitacao(s["id"], current_user)
+                    st.success("Solicitação aprovada com sucesso!")
+                    st.rerun()
+                except ValueError as erro:
+                    st.error(str(erro))
+
         if is_pending and can_reject:
             if bc2.button("Recusar", key=f"rec_{s['id']}", use_container_width=True):
                 recusar_modal(s)

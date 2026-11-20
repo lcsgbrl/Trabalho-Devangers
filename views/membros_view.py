@@ -46,10 +46,15 @@ def member_modal(member=None):
             if editing:
                 mc.update_member(member["id"], payload)
                 st.toast("Membro atualizado com sucesso!")
+                st.rerun()
             else:
-                mc.add_member_directly(payload)
-                st.toast(f"{nome} adicionado(a) com sucesso!")
-            st.rerun()
+                try:
+                    mc.add_member_directly(payload)
+                except ValueError as erro:
+                    st.error(str(erro))
+                else:
+                    st.toast(f"{nome} adicionado(a) com sucesso!")
+                    st.rerun()
 
 
 @st.dialog("Remover membro?")

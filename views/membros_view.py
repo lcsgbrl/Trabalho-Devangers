@@ -2,6 +2,7 @@
 """[VIEW] Membros — equivalente a src/pages/Membros.tsx."""
 
 import streamlit as st
+import re
 
 from controllers import academico_controller, auth_controller, membros_controller as mc
 from models import domain_data as data
@@ -26,21 +27,28 @@ def member_modal(member=None):
                        index=0 if not editing or member["status"] == "Ativo" else 1, horizontal=True)
 
     if st.button("Salvar" if editing else "Adicionar", type="primary", use_container_width=True):
-        if not nome.strip():
-            st.error("O nome é obrigatório.")
-        elif "@" not in email:
-            st.error("Informe um e-mail válido.")
+        nome = nome.strip()
+        email = email.strip()
+
+        if len(nome) < 3:
+            st.error("Informe um nome com pelo menos 3 caracteres.")
+        elif len(email) > 254 or not re.fullmatch(
+            r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+",
+            email
+        ):
+            st.error("Informe um endereço de e-mail válido.")
         else:
             payload = {
-                "nome": nome, "email": email, "funcao": funcao, "depto": depto,
-                "nucleo": None if nucleo_sel.startswith("—") else nucleo_sel, "status": status,
+                "nome": nome, "email": email, "funcao": funcao,
+                "nucleo": None if nucleo_sel.startswith("—") else nucleo_sel,
+                "status": status
             }
             if editing:
                 mc.update_member(member["id"], payload)
-                st.toast("Membro atualizado com sucesso!", icon="✅")
+                st.toast("Membro atualizado com sucesso!")
             else:
                 mc.add_member_directly(payload)
-                st.toast(f"{nome} adicionado(a) com sucesso!", icon="✅")
+                st.toast(f"{nome} adicionado(a) com sucesso!")
             st.rerun()
 
 

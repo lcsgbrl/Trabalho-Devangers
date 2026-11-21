@@ -128,23 +128,31 @@ def solicitacao_modal():
     if st.button(btn_label, type="primary", disabled=not can_submit, use_container_width=True):
         tipo = "aluno_para_professor" if is_aluno else ("auth_required" if needs_auth else "direta")
         status_ini = "Pendente" if is_aluno else ("Em análise" if needs_auth else "Aprovado")
-        rc.add_solicitacao(
-            tipo=tipo, sala=sala_sel["nome"], bloco=f'{sala_sel["bloco"]} — {sala_sel["numero"]}',
-            data=data_res.strftime("%d/%m/%Y"), inicio=inicio.strftime("%H:%M"), fim=fim.strftime("%H:%M"),
-            pessoas=int(pessoas), solicitante=user["nome"], solicitanteRole=user["role"],
-            nucleoSolicitante=user.get("nucleo"),
-            professorResponsavel=professor if is_aluno else None,
-            status=status_ini, motivo=obs,
-        )
-        if is_aluno:
-            st.success("Solicitação enviada! Sua solicitação foi enviada ao professor responsável e aguarda aprovação.")
-        elif needs_auth:
-            st.success("Aguardando autorização — sua solicitação foi encaminhada ao coordenador.")
+       
+        try:
+            rc.add_solicitacao(
+                tipo=tipo, sala=sala_sel["nome"], bloco=f'{sala_sel["bloco"]} — {sala_sel["numero"]}',
+                data=data_res.strftime("%d/%m/%Y"), inicio=inicio.strftime("%H:%M"), fim=fim.strftime("%H:%M"),
+                pessoas=int(pessoas), solicitante=user["nome"], solicitanteRole=user["role"],
+                solicitanteUid=st.session_state.get("user_uid"),
+                nucleoSolicitante=user.get("nucleo"),
+                professorResponsavel=professor if is_aluno else None,
+                status=status_ini, motivo=obs,
+            )
+        except ValueError as erro:
+            st.error(str(erro))
         else:
-            st.success("Reserva confirmada com sucesso!")
-        st.balloons()
-        if st.button("Fechar"):
-            st.rerun()
+            if is_aluno:
+                st.success("Solicitação enviada! Sua solicitação foi enviada ao professor responsável e aguarda aprovação.")
+            elif needs_auth:
+                st.success("Aguardando autorização — sua solicitação foi encaminhada ao coordenador.")
+            else:
+                st.success("Reserva confirmada com sucesso!")
+
+            st.balloons()
+            if st.button("Fechar"):
+                st.rerun()
+
 
 
 @st.dialog("Recusar solicitação")
@@ -158,7 +166,7 @@ def recusar_modal(sol):
 
 # ── Cards ─────────────────────────────────────────────────────────────────────
 
-def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user):
+def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user, contexto):
     st_style = data.STATUS_SOL_STYLE.get(s["status"], data.STATUS_SOL_STYLE["Pendente"])
     is_pending = s["status"] in ("Pendente", "Em análise")
     with st.container(border=True):
@@ -187,14 +195,20 @@ def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user):
 
         bc1, bc2, bc3 = st.columns(3)
         if is_pending and can_approve:
-            if bc1.button("Aprovar", key=f"aprov_{s['id']}", use_container_width=True):
-                rc.aprovar_solicitacao(s["id"], current_user)
-                st.rerun()
+            if bc1.button("Aprovar", key=f"aprov_{contexto}_{s['id']}", use_container_width=True):
+               
+                try:
+                    rc.aprovar_solicitacao(s["id"], current_user)
+                    st.success("Solicitação aprovada com sucesso!")
+                    st.rerun()
+                except ValueError as erro:
+                    st.error(str(erro))
+
         if is_pending and can_reject:
-            if bc2.button("Recusar", key=f"rec_{s['id']}", use_container_width=True):
+            if bc2.button("Recusar",key=f"rec_{contexto}_{s['id']}", use_container_width=True):
                 recusar_modal(s)
         if can_cancel and s["status"] != "Cancelado":
-            if bc3.button("Cancelar", key=f"canc_{s['id']}", use_container_width=True):
+            if bc3.button("Cancelar",key=f"canc_{contexto}_{s['id']}", use_container_width=True):
                 rc.cancelar_solicitacao(s["id"])
                 st.rerun()
 
@@ -208,7 +222,9 @@ def render():
     is_admin = auth_controller.is_admin()
 
     salas = rc.list_salas()
-    minhas = rc.minhas_solicitacoes(user["nome"])
+    minhas = rc.minhas_solicitacoes(
+        user["nome"], st.session_state.get("user_uid")
+    )
     pend_professor = rc.pendentes_para_professor(user["nome"])
     coord_nucleo = user.get("nucleo")
     todas_auth_coord = rc.auth_requests_do_nucleo(coord_nucleo)
@@ -262,10 +278,18 @@ def render():
                         ac1, ac2 = st.columns(2)
                         if ac1.button("Editar", key=f"editsala_{s['id']}", use_container_width=True):
                             sala_modal(s)
-                        manut_label = "✓ Reativar" if s["status"] == "Manutenção" else "⚠ Manutenção"
-                        if ac2.button(manut_label, key=f"manut_{s['id']}", use_container_width=True):
+                        
+                        if s["status"] == "Disponível":
+                            manut_label = "⚠ Manutenção"
+                        elif s["status"] == "Manutenção":
+                            manut_label = "✓ Reativar"
+                        else:
+                            manut_label = "✓ Ativar"
+
+                        if manut_label and ac2.button(manut_label, key=f"manut_{s['id']}", use_container_width=True):
                             rc.toggle_manutencao(s["id"])
                             st.rerun()
+
         if is_admin:
             if st.button("+ Nova Sala", use_container_width=True):
                 sala_modal()
@@ -278,10 +302,9 @@ def render():
             cols = st.columns(2)
             for i, s in enumerate(minhas):
                 with cols[i % 2]:
-                    solicitacao_card(s, can_approve=False, can_reject=False,
-                                      can_cancel=s["status"] not in ("Cancelado", "Recusado"),
-                                      current_user=user["nome"])
-
+                   solicitacao_card(s, can_approve=False, can_reject=False,
+                  can_cancel=s["status"] not in ("Cancelado", "Recusado"),
+                  current_user=user["nome"], contexto="minhas")
     # ── Aprovações / Todas ──
     if show_aprov:
         with tabs[2]:
@@ -292,7 +315,8 @@ def render():
                 for i, s in enumerate(todas):
                     with cols[i % 2]:
                         solicitacao_card(s, can_approve=False, can_reject=False,
-                                          can_cancel=s["status"] != "Cancelado", current_user=user["nome"])
+                  can_cancel=s["status"] != "Cancelado",
+                  current_user=user["nome"], contexto="todas")
             elif is_professor:
                 minhas_alunos = rc.solicitacoes_de_alunos_do_professor(user["nome"])
                 st.markdown(f"**Solicitações de Alunos** " +
@@ -304,8 +328,9 @@ def render():
                     for i, s in enumerate(minhas_alunos):
                         with cols[i % 2]:
                             can_act = s["status"] in ("Pendente", "Em análise")
-                            solicitacao_card(s, can_approve=can_act, can_reject=can_act,
-                                              can_cancel=False, current_user=user["nome"])
+                        solicitacao_card(s, can_approve=can_act, can_reject=can_act,
+                  can_cancel=False, current_user=user["nome"],
+                  contexto="professor")
             elif is_coordenador:
                 label = f"**Solicitações que exigem autorização**"
                 if coord_nucleo:
@@ -321,4 +346,5 @@ def render():
                         with cols[i % 2]:
                             can_act = s["status"] in ("Pendente", "Em análise")
                             solicitacao_card(s, can_approve=can_act, can_reject=can_act,
-                                              can_cancel=False, current_user=user["nome"])
+                  can_cancel=False, current_user=user["nome"],
+                  contexto="coordenador")

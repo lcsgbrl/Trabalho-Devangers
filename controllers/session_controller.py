@@ -38,6 +38,10 @@ def init_state() -> None:
 
 def carregar_dados_instituicao(instituicao_id: str | None = None) -> None:
     """
+    Carrega salas, solicitações, membros e estrutura acadêmica da instituição
+    ativa a partir do Firestore para st.session_state.
+    """
+    from models import sala_model, solicitacao_model, membro_model, academico_model
     Carrega salas e solicitações da instituição ativa a partir do Firestore
     para st.session_state, mantendo retrocompatibilidade com todas as views.
     """
@@ -53,6 +57,29 @@ def carregar_dados_instituicao(instituicao_id: str | None = None) -> None:
         st.warning(f"Não foi possível carregar salas do banco: {e}")
 
     try:
+        sols, next_sol_id = solicitacao_model.listar_solicitacoes_firestore(inst_id)
+        ss.solicitacoes = sols
+        ss._next_sol_id = next_sol_id
+    except Exception as e:
+        st.warning(f"Não foi possível carregar solicitações do banco: {e}")
+
+    try:
+        membros, next_member_id = membro_model.listar_membros_firestore(inst_id)
+        ss.members = membros
+        ss._next_member_id = next_member_id
+    except Exception as e:
+        st.warning(f"Não foi possível carregar membros do banco: {e}")
+
+    try:
+        acad = academico_model.listar_academico_firestore(inst_id)
+        ss.nucleos = acad["nucleos"]
+        ss.cursos = acad["cursos"]
+        ss.turmas = acad["turmas"]
+        ss.disciplinas = acad["disciplinas"]
+        ss._next_acad_id = acad["max_id"]
+    except Exception as e:
+        st.warning(f"Não foi possível carregar dados acadêmicos do banco: {e}")
+
         sols, next_id = solicitacao_model.listar_solicitacoes_firestore(inst_id)
         ss.solicitacoes = sols
         ss._next_sol_id = next_id

@@ -317,3 +317,4 @@ def concluir_primeiro_acesso(
     except Exception as e:
         return False, f"Erro ao concluir primeiro acesso: {str(e)}"
     
+        return False, f"Erro: {str(e)}"

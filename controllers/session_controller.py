@@ -42,6 +42,10 @@ def carregar_dados_instituicao(instituicao_id: str | None = None) -> None:
     ativa a partir do Firestore para st.session_state.
     """
     from models import sala_model, solicitacao_model, membro_model, academico_model
+    Carrega salas e solicitações da instituição ativa a partir do Firestore
+    para st.session_state, mantendo retrocompatibilidade com todas as views.
+    """
+    from models import sala_model, solicitacao_model
 
     ss = st.session_state
     inst_id = instituicao_id or ss.get("instituicao_id") or "inst_001"
@@ -75,6 +79,12 @@ def carregar_dados_instituicao(instituicao_id: str | None = None) -> None:
         ss._next_acad_id = acad["max_id"]
     except Exception as e:
         st.warning(f"Não foi possível carregar dados acadêmicos do banco: {e}")
+
+        sols, next_id = solicitacao_model.listar_solicitacoes_firestore(inst_id)
+        ss.solicitacoes = sols
+        ss._next_sol_id = next_id
+    except Exception as e:
+        st.warning(f"Não foi possível carregar solicitações do banco: {e}")
 
 
 def limpar_dados_sessao() -> None:

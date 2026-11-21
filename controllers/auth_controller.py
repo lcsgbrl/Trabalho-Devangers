@@ -253,3 +253,4 @@ def concluir_primeiro_acesso(
         turma=turma,
         materia=materia,
     )
+    return perfil

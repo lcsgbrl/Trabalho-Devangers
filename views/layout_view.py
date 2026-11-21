@@ -154,7 +154,10 @@ def render_sidebar():
                 <div style="width:30px;height:30px;border-radius:50%;background:{rc['text']};
                             display:flex;align-items:center;justify-content:center;color:white;
                             font-size:0.7rem;font-weight:700;flex-shrink:0;">
-                    {user['initials']}
+                   {user.get('initials') or ''.join(
+                        parte[0].upper()
+                        for parte in (user.get('name') or user.get('nome') or 'Usuário').split()[:2]
+                    )}
                 </div>
                 <div style="min-width:0;">
                     <div style="font-size:0.78rem;font-weight:600;color:#FAF9F6;

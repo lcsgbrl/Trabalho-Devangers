@@ -31,6 +31,10 @@ def nucleo_modal(nucleo=None):
 def curso_modal(curso=None, scoped_nucleo_id=None):
     editing = curso is not None
     nucleo_opts = {n["nome"]: n["id"] for n in ac.list_nucleos() if n["ativo"]}
+    if not scoped_nucleo_id and not nucleo_opts:
+        st.warning("Não existe nenhum núcleo ativo cadastrado.")
+        st.info("Cadastre ou ative um núcleo antes de cadastrar um curso.")
+        return
     if scoped_nucleo_id:
         cur_nome = ac.get_nucleo_by_id(scoped_nucleo_id)["nome"]
         st.caption(f"Núcleo: {cur_nome}")

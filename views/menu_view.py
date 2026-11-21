@@ -22,7 +22,7 @@ ALL_CARDS = [
         "desc": lambda role: (
             "Consulte salas disponíveis e envie solicitações de reserva."
             if role == "Aluno" else
-            "Consulte, crie e gerencie reservas de ambientes."
+            "Consulte, crie e gerencie todas as reservas de ambientes."
         ),
         "color": "#1E5E60", "bg": "#E3ECEE",
     },
@@ -113,7 +113,7 @@ def render():
         label = card["label"](user["role"]) if callable(card["label"]) else card["label"]
         desc = card["desc"](user["role"]) if callable(card["desc"]) else card["desc"]
         with col:
-            with st.container(border=True):
+            with st.container(border=True, height=240):
                 
                 components.html(
                     get_icon(card["icon"], card["color"]),

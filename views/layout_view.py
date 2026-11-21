@@ -21,6 +21,10 @@ NAV_ITEMS = [
 def render_sidebar():
     user = auth_controller.current_user()
     rc = data.ROLE_COLORS[user["role"]]
+    nome_usuario = user.get("nome") or user.get("name") or "Usuário"
+    iniciais = user.get("initials") or "".join(
+        parte[0].upper() for parte in nome_usuario.split()[:2] if parte
+    )
 
     with st.sidebar:
         st.markdown(
@@ -67,10 +71,10 @@ def render_sidebar():
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                 <div style="width:30px;height:30px;border-radius:50%;background:{rc['text']};
                             display:flex;align-items:center;justify-content:center;color:white;
-                            font-size:0.7rem;font-weight:700;flex-shrink:0;">{user['initials']}</div>
+                            font-size:0.7rem;font-weight:700;flex-shrink:0;">{iniciais}</div>
                 <div style="min-width:0;">
                     <div style="font-size:0.78rem;font-weight:600;color:#FAF9F6;white-space:nowrap;
-                                overflow:hidden;text-overflow:ellipsis;">{user['nome']}</div>
+                                overflow:hidden;text-overflow:ellipsis;">{nome_usuario}</div>
                     <div style="font-size:0.7rem;color:#776D5B;">{user['role']}</div>
                 </div>
             </div>

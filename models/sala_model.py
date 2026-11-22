@@ -1,15 +1,16 @@
-# -*- coding: utf-8 -*-
+# -- coding: utf-8 --
 """
 [MODEL] Entidade Sala (ambiente).
 
-Mantém compatibilidade com a interface de listas usada pelos controllers,
-sincronizando cada operação com o Firestore isolada por instituicao_id.
+Unifica as regras de validação de sala com a persistência no Firestore
+isolada por instituicao_id.
 """
 
 import streamlit as st
 
 INSTITUICAO_PADRAO_ID = "inst_001"
 COLECAO_SALAS = "salas"
+STATUS_SALA = ("Disponível", "Manutenção", "Inativa")
 
 
 def _get_db():
@@ -24,6 +25,24 @@ def _doc_id(instituicao_id: str, sala_id: int) -> str:
     return f"{instituicao_id}_{sala_id}"
 
 
+def _validar_sala(sala: dict) -> None:
+    """Valida os campos essenciais e o status de uma sala."""
+    for campo in ("nome", "bloco", "numero"):
+        if not str(sala.get(campo, "")).strip():
+            raise ValueError("Preencha nome, bloco e localização da sala.")
+
+    try:
+        capacidade = int(sala.get("capacidade", 0))
+    except (TypeError, ValueError):
+        raise ValueError("Informe uma capacidade válida para a sala.")
+
+    if capacidade < 1:
+        raise ValueError("A capacidade da sala deve ser maior que zero.")
+
+    if sala.get("status") not in STATUS_SALA:
+        raise ValueError("Status de sala inválido.")
+
+
 def listar_salas_firestore(instituicao_id: str | None = None) -> list:
     """Busca todas as salas da instituição no Firestore ordenadas por id."""
     db = _get_db()
@@ -31,7 +50,8 @@ def listar_salas_firestore(instituicao_id: str | None = None) -> list:
         return []
 
     inst_id = instituicao_id or _get_instituicao_id()
-    docs = db.collection(COLECAO_SALAS).where("instituicao_id", "==", inst_id).stream()
+    docs = db.collection(COLECAO_SALAS).where(
+        "instituicao_id", "==", inst_id).stream()
 
     salas = [doc.to_dict() for doc in docs]
     salas.sort(key=lambda s: s.get("id", 0))
@@ -39,7 +59,8 @@ def listar_salas_firestore(instituicao_id: str | None = None) -> list:
 
 
 def add_sala(salas: list, sala: dict) -> dict:
-    """Cria uma nova sala com id autoincremental, persiste no Firestore e insere na lista."""
+    """Valida, cria uma nova sala com id autoincremental e persiste no Firestore."""
+    _validar_sala(sala)
     new_id = (max((s["id"] for s in salas), default=0)) + 1
     inst_id = _get_instituicao_id()
 
@@ -49,13 +70,15 @@ def add_sala(salas: list, sala: dict) -> dict:
 
     db = _get_db()
     if db:
-        db.collection(COLECAO_SALAS).document(_doc_id(inst_id, new_id)).set(novo)
+        db.collection(COLECAO_SALAS).document(
+            _doc_id(inst_id, new_id)).set(novo)
 
     salas.append(novo)
     return novo
 
 
 def update_sala(salas: list, sala_id: int, data_new: dict) -> None:
+    _validar_sala(data_new)
     inst_id = _get_instituicao_id()
     for i, s in enumerate(salas):
         if s["id"] == sala_id:
@@ -64,15 +87,17 @@ def update_sala(salas: list, sala_id: int, data_new: dict) -> None:
 
             db = _get_db()
             if db:
-                db.collection(COLECAO_SALAS).document(_doc_id(inst_id, sala_id)).set(atualizado)
+                db.collection(COLECAO_SALAS).document(
+                    _doc_id(inst_id, sala_id)).set(atualizado)
             return
 
 
 def toggle_manutencao(salas: list, sala_id: int) -> None:
+    """Alterna Disponível/Manutenção; uma sala Inativa volta a Disponível."""
     inst_id = _get_instituicao_id()
     for s in salas:
         if s["id"] == sala_id:
-            novo_status = "Disponível" if s["status"] == "Manutenção" else "Manutenção"
+            novo_status = "Manutenção" if s["status"] == "Disponível" else "Disponível"
             s["status"] = novo_status
 
             db = _get_db()

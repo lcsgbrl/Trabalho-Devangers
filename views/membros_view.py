@@ -157,12 +157,12 @@ def render():
                         confirm_delete_modal(m)
 
         if not filtered:
-            st.info("Nenhum membro encontrado. Tente ajustar os filtros de busca.")
+            st.error("Nenhum membro encontrado. Tente ajustar os filtros de busca.")
 
     if is_admin:
         with tabs[1]:
             if not pending_requests:
-                st.success("Nenhuma solicitação pendente. Todas as solicitações de cadastro foram processadas.")
+                st.error("Nenhuma solicitação pendente. Todas as solicitações de cadastro foram processadas.")
             for m in pending_requests:
                 s_badge = data.MEMBER_STATUS_BADGE.get(m["status"], data.MEMBER_STATUS_BADGE["Pendente"])
                 with st.container(border=True):

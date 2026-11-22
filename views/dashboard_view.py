@@ -72,14 +72,14 @@ def professor_dashboard(user_name, my_reservas):
                 st.write(f"{h['periodo']} ({h['label']}) — {h['reservas']} reservas")
                 st.progress(hp / 100)
         else:
-            st.info("Não há reservas neste período.")
+            st.error("Não há reservas neste período.")
 
     st.markdown("###### Utilização por ambiente")
     if d["chart_rooms"]:
         df = pd.DataFrame(d["chart_rooms"])
         st.plotly_chart(bar_chart(df["sala"], df["reservas"]), use_container_width=True)
     else:
-        st.info("Não há dados de utilização para exibir.")
+        st.error("Não há dados de utilização para exibir.")
 
     st.markdown("###### Insights")
     for ins in d["insights"]:

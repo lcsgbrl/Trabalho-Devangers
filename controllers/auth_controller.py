@@ -233,3 +233,24 @@ def current_user():
     perfil['initials'] = iniciais
 
     return perfil
+
+def concluir_primeiro_acesso(
+    nome: str,
+    email: str,
+    senha_temporaria: str,
+    nova_senha: str,
+    curso: str,
+    turma: str,
+    materia: str,
+):
+    init_auth_state()
+    return auth_model.concluir_primeiro_acesso(
+        nome=nome,
+        email=email,
+        senha_temporaria=senha_temporaria,
+        nova_senha=nova_senha,
+        curso=curso,
+        turma=turma,
+        materia=materia,
+    )
+    return perfil

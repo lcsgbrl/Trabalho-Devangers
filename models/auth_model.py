@@ -233,3 +233,88 @@ def deletar_conta_completa(uid: str):
 
     except Exception as e:
         return False, f"Erro: {str(e)}"
+    
+def concluir_primeiro_acesso(
+    nome: str,
+    email: str,
+    senha_temporaria: str,
+    nova_senha: str,
+    curso: str,
+    turma: str,
+    materia: str,
+):
+    """
+    Valida o pré-cadastro com a senha temporária, atualiza para a nova senha
+    no Firebase Auth e grava o vínculo acadêmico no Firestore.
+    """
+    if len(nome.strip()) < 3:
+        return False, "Informe seu nome completo."
+
+    if not auth_utils.validar_email(email):
+        return False, "E-mail inválido."
+
+    if not senha_temporaria:
+        return False, "Informe a senha temporária recebida."
+
+    if not auth_utils.validar_senha(nova_senha):
+        return False, "A nova senha deve ter no mínimo 6 caracteres."
+
+    if senha_temporaria == nova_senha:
+        return False, "A nova senha deve ser diferente da senha temporária."
+
+    # 1. Valida e-mail e senha temporária no Firebase Auth
+    sucesso, uid, _ = auth_utils.autenticar_usuario(email.strip(), senha_temporaria)
+    if not sucesso:
+        return False, "E-mail ou senha temporária inválidos."
+
+    try:
+        db = st.session_state.firestore_db
+        doc_ref = db.collection("usuarios").document(uid)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return False, "Pré-cadastro não encontrado. Solicite ao administrador."
+
+        perfil = doc.to_dict()
+        if not perfil.get("ativo", True):
+            return False, "Esta conta está inativa."
+
+        # 2. Atualiza para a senha definitiva e marca e-mail como verificado no Auth
+        auth.update_user(uid, password=nova_senha, email_verified=True)
+
+        # 3. Atualiza perfil no Firestore com curso, turma e matéria
+        atualizacoes = {
+            "nome": nome.strip(),
+            "curso": curso.strip(),
+            "turma": turma.strip(),
+            "materia": materia.strip(),
+            "primeiro_acesso": False,
+            "email_verificado": True,
+            "atualizado_em": datetime.now(),
+        }
+        doc_ref.update(atualizacoes)
+
+        # 4. Atualiza também o registro na coleção membros (se existir)
+        membros_docs = (
+            db.collection("membros")
+            .where("email", "==", email.strip())
+            .limit(1)
+            .stream()
+        )
+        membro_doc = next(membros_docs, None)
+        if membro_doc:
+            db.collection("membros").document(membro_doc.id).update({
+                "nome": nome.strip(),
+                "curso": curso.strip(),
+                "turma": turma.strip(),
+                "materia": materia.strip(),
+                "primeiroAcesso": False,
+                "status": "Ativo",
+            })
+
+        return True, "Primeiro acesso concluído com sucesso! Faça login com sua nova senha."
+
+    except Exception as e:
+        return False, f"Erro ao concluir primeiro acesso: {str(e)}"
+    
+        return False, f"Erro: {str(e)}"

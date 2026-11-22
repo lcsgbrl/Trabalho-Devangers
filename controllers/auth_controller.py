@@ -32,13 +32,16 @@ def init_auth_state():
     if 'current_user' not in st.session_state:
         st.session_state.current_user = None
 
+    if 'instituicao_id' not in st.session_state:
+        st.session_state.instituicao_id = 'inst_001'
+
 
 def is_logged_in():
     """Verifica se usuário está logado"""
     return st.session_state.get('user_uid') is not None
 
 
-def fazer_login(email: str):
+def fazer_login(email: str, senha: str):
     """
     Processa login do usuário
     
@@ -47,13 +50,12 @@ def fazer_login(email: str):
     """
     init_auth_state()
     
-    if not email:
-        return False, "Email é obrigatório"
+    if not email or not senha:
+        return False, "E-mail e senha são obrigatórios"
     
-    sucesso, uid, mensagem = auth_model.fazer_login(email)
+    sucesso, uid, mensagem = auth_model.fazer_login(email, senha)
     
     if sucesso:
-        # Obter perfil e armazenar em sessão
         perfil = auth_model.obter_perfil_usuario(uid)
         perfil["role"] = {
             "usuario": "Aluno",
@@ -61,34 +63,31 @@ def fazer_login(email: str):
             "admin": "Administrador",
         }.get(perfil.get("role"), perfil.get("role"))
 
+        inst_id = perfil.get("instituicao_id") or "inst_001"
+
         st.session_state.user_uid = uid
         st.session_state.user_email = email
         st.session_state.user_nome = perfil.get('nome')
         st.session_state.user_role = perfil.get('role')
         st.session_state.user_perfil = perfil
         st.session_state.current_user = perfil
+        st.session_state.instituicao_id = inst_id
+        st.session_state.logged_in = True
+
+        # Carrega dados da instituição do Firestore ao entrar
+        session_controller.carregar_dados_instituicao(inst_id)
         session_controller.goto("menu")
     
     return sucesso, mensagem
 
 
-def fazer_registro(email: str, senha: str, nome: str):
-    """
-    Processa registro de novo usuário
-    
-    Returns:
-        tuple: (sucesso: bool, mensagem: str)
-    """
+def fazer_registro(email: str, senha: str, nome: str, codigo_instituicao: str = "SGA2026"):
     init_auth_state()
-    
-    sucesso, uid, mensagem = auth_model.criar_nova_conta(email, senha, nome)
-    
-    if sucesso:
-        st.session_state.user_uid = uid
-        st.session_state.user_email = email
-        st.session_state.user_nome = nome
-        st.session_state.user_role = 'usuario'
-    
+
+    sucesso, uid, mensagem = auth_model.criar_nova_conta(
+        email, senha, nome, codigo_instituicao=codigo_instituicao
+    )
+
     return sucesso, mensagem
 
 
@@ -100,6 +99,8 @@ def fazer_logout():
     st.session_state.user_role = None
     st.session_state.user_perfil = None
     st.session_state.current_user = None
+    st.session_state.logged_in = False
+    session_controller.limpar_dados_sessao()
 
 
 def logout():
@@ -108,12 +109,7 @@ def logout():
 
 
 def atualizar_perfil(dados: dict):
-    """
-    Atualiza perfil do usuário logado
-    
-    Returns:
-        tuple: (sucesso: bool, mensagem: str)
-    """
+    """Atualiza perfil do usuário logado"""
     if not is_logged_in():
         return False, "Usuário não está logado"
     
@@ -121,7 +117,6 @@ def atualizar_perfil(dados: dict):
     sucesso, mensagem = auth_model.atualizar_perfil(uid, dados)
     
     if sucesso:
-        # Recarregar perfil
         st.session_state.user_perfil = auth_model.obter_perfil_usuario(uid)
     
     return sucesso, mensagem
@@ -153,12 +148,7 @@ def update_current_user_profile(nome: str, email: str):
 
 
 def deletar_conta():
-    """
-    Deleta conta do usuário logado
-    
-    Returns:
-        tuple: (sucesso: bool, mensagem: str)
-    """
+    """Deleta conta do usuário logado"""
     if not is_logged_in():
         return False, "Usuário não está logado"
     
@@ -172,12 +162,7 @@ def deletar_conta():
 
 
 def tem_permissao(permissao: str) -> bool:
-    """
-    Verifica se usuário tem determinada permissão
-    
-    Args:
-        permissao: Nome da permissão (ex: 'admin', 'professor')
-    """
+    """Verifica se usuário tem determinada permissão"""
     if not is_logged_in():
         return False
     
@@ -189,7 +174,6 @@ def tem_permissao(permissao: str) -> bool:
         'Administrador': 'admin',
     }.get(role, role)
     
-    # Mapa de permissões por papel
     permissoes = {
         'usuario': ['ver_agenda', 'fazer_reservas'],
         'professor': ['ver_agenda', 'fazer_reservas', 'gerenciar_aulas'],
@@ -229,9 +213,23 @@ def obter_info_usuario():
         'email': st.session_state.get('user_email'),
         'nome': st.session_state.get('user_nome'),
         'role': st.session_state.get('user_role'),
+        'instituicao_id': st.session_state.get('instituicao_id', 'inst_001'),
     }
 
 
 def current_user():
-    """Retorna o perfil compatível com as views legadas do aplicativo."""
-    return st.session_state.get('current_user') or st.session_state.get('user_perfil') or {}
+    """Retorna o perfil compatível com as views do aplicativo."""
+    perfil = (
+        st.session_state.get('current_user')
+        or st.session_state.get('user_perfil')
+        or {}
+    )
+
+    nome = perfil.get('nome') or perfil.get('name') or 'Usuário'
+    partes = nome.split()
+    iniciais = ''.join(parte[0].upper() for parte in partes[:2])
+
+    perfil['name'] = nome
+    perfil['initials'] = iniciais
+
+    return perfil

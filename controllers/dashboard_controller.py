@@ -55,6 +55,10 @@ def pending_auth_for_coordenador(nucleo: str | None) -> list:
     return solicitacao_model.pendentes(requests)
 
 
+def listar_membros() -> list:
+    return list(st.session_state.get("usuarios", []))
+
+
 def professor_dashboard_data(user_name: str, my_reservas: list, periodo_label: str) -> dict:
     today = date.today()
     days = PROF_PERIOD_DAYS[periodo_label]
@@ -130,10 +134,34 @@ def professor_dashboard_data(user_name: str, my_reservas: list, periodo_label: s
     }
 
 
-def admin_coord_dashboard_data(solicitacoes: list, salas: list) -> dict:
+def admin_coord_dashboard_data(solicitacoes: list, salas: list, membros: list | None = None) -> dict:
+    membros = membros or []
     valid = [s for s in solicitacoes if s["status"] not in ("Cancelado", "Recusado")]
     aprovados = [s for s in solicitacoes if s["status"] == "Aprovado"]
     pendentes = [s for s in solicitacoes if s["status"] in ("Pendente", "Em análise")]
+
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+    now = datetime.now()
+    now_minutes = now.hour * 60 + now.minute
+
+    reservas_hoje = [s for s in valid if _parse_pt_date(s["data"]) == today]
+    reservas_ontem = [s for s in valid if _parse_pt_date(s["data"]) == yesterday]
+
+    if reservas_ontem:
+        variacao = round((len(reservas_hoje) - len(reservas_ontem)) / len(reservas_ontem) * 100)
+        reservas_hoje_footer = f"{variacao:+d}% em relação a ontem"
+    else:
+        reservas_hoje_footer = "Sem dados de ontem"
+
+    salas_ocupadas = {
+        s["sala"]
+        for s in aprovados
+        if _parse_pt_date(s["data"]) == today
+        and _parse_minutes(s["inicio"]) <= now_minutes < _parse_minutes(s["fim"])
+    }
+    ambientes_ocupados = len(salas_ocupadas)
+    ambientes_disponiveis = max(0, len(salas) - ambientes_ocupados)
 
     week_counts = {day: 0 for day in WEEKDAYS}
     for reservation in valid:
@@ -195,6 +223,12 @@ def admin_coord_dashboard_data(solicitacoes: list, salas: list) -> dict:
         "aprovadas": len(aprovados),
         "pendentes": len(pendentes),
         "total_pessoas": sum(s["pessoas"] for s in valid),
+        "reservas_hoje": len(reservas_hoje),
+        "reservas_hoje_footer": reservas_hoje_footer,
+        "ambientes_disponiveis": ambientes_disponiveis,
+        "ambientes_ocupados": ambientes_ocupados,
+        "total_membros": len(membros),
+        "membros_footer": None,
         "week_data": week_data,
         "peak_hours": peak_hours,
         "room_stats": all_room_stats,

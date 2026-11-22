@@ -58,7 +58,7 @@ def render():
             else:
                 st.error(msg)
         else:
-            st.info("Nenhuma alteração foi feita")
+            st.error("Nenhuma alteração foi feita")
     
     st.markdown("---")
     
@@ -69,12 +69,12 @@ def render():
     
     with col1:
         if st.button("🔑 Alterar Senha", use_container_width=True):
-            st.info("⚠️ Função de reset de senha será implementada com Firebase Client SDK")
+            st.error("⚠️ Função de reset de senha será implementada com Firebase Client SDK")
             st.write("Por enquanto, use: Esqueceu a senha? no login")
     
     with col2:
         if st.button("📧 Verificar Email", use_container_width=True):
-            st.info("Email de verificação será enviado (Firebase Email Verification)")
+            st.error("Email de verificação será enviado (Firebase Email Verification)")
     
     st.markdown("---")
     

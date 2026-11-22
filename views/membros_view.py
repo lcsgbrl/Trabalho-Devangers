@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """[VIEW] Membros — equivalente a src/pages/Membros.tsx."""
 
@@ -24,7 +25,7 @@ def member_modal(member=None):
     nucleo_sel = st.selectbox("Núcleo", nucleo_opts,
                                index=nucleo_opts.index(cur_nucleo) if cur_nucleo in nucleo_opts else 0)
     status = st.radio("Status", ["Ativo", "Inativo"],
-                       index=0 if not editing or member["status"] == "Ativo" else 1, horizontal=True)
+                      index=0 if not editing or member["status"] == "Ativo" else 1, horizontal=True)
 
     if st.button("Salvar" if editing else "Adicionar", type="primary", use_container_width=True):
         nome = nome.strip()
@@ -38,7 +39,6 @@ def member_modal(member=None):
         ):
             st.error("Informe um endereço de e-mail válido.")
         else:
-            
             payload = {
                 "nome": nome,
                 "email": email,
@@ -64,7 +64,6 @@ def member_modal(member=None):
                 else:
                     st.toast(f"{nome} adicionado(a) com sucesso!")
                     st.rerun()
-
 
 
 @st.dialog("Remover membro?")
@@ -131,4 +130,4 @@ def render():
                     confirm_delete_modal(m)
 
     if not filtered:
-        st.info("Nenhum membro encontrado. Tente ajustar os filtros de busca.")
+        st.error("Nenhum membro encontrado. Tente ajustar os filtros de busca.")

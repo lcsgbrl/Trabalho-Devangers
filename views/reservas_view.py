@@ -163,7 +163,7 @@ def solicitacao_modal():
     )
 
     if needs_auth:
-        st.info("Este ambiente exige autorização do coordenador.")
+        st.error("Este ambiente exige autorização do coordenador.")
 
     if sala_sel:
         with st.container(border=True):
@@ -225,7 +225,7 @@ def solicitacao_modal():
                 "Professor responsável *", [""] + professores
             )
         else:
-            st.info(
+            st.error(
                 "Não há professores ativos cadastrados para receber solicitações."
             )
 
@@ -437,7 +437,7 @@ def render():
                 solicitacao_modal()
 
     if is_aluno:
-        st.info(
+        st.error(
             "Como **Aluno**, você pode consultar salas e enviar solicitações. "
             "As reservas precisam ser aprovadas pelo professor responsável."
         )
@@ -528,7 +528,7 @@ def render():
     # ── Minhas reservas ──
     with tabs[1]:
         if not minhas:
-            st.info(
+            st.error(
                 "Nenhuma solicitação encontrada."
                 if is_aluno
                 else "Nenhuma reserva encontrada."
@@ -585,7 +585,7 @@ def render():
                 )
 
                 if not minhas_alunos:
-                    st.info("Nenhuma solicitação recebida.")
+                    st.error("Nenhuma solicitação recebida.")
                 else:
                     cols = st.columns(2)
 
@@ -613,7 +613,7 @@ def render():
                 st.markdown(label)
 
                 if not todas_auth_coord:
-                    st.info(
+                    st.error(
                         "Nenhuma solicitação de autorização"
                         + (
                             f" para o Núcleo {coord_nucleo}"

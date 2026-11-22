@@ -154,7 +154,10 @@ def _render_first_access_form():
             senha_temp = st.text_input("Senha temporária", type="password", placeholder="Recebida por e-mail")
         with col2:
             nova_senha = st.text_input("Nova senha definitiva", type="password", placeholder="Mínimo 6 caracteres")
-
+            st.caption(
+                "⚠ Dica para criar uma senha mais segura: combine letras maiúsculas, "
+            "letras minúsculas, números e caracteres especiais."
+        )
         confirmar_senha = st.text_input("Confirmar nova senha", type="password", placeholder="Repita a nova senha")
 
         col_c, col_t = st.columns(2)

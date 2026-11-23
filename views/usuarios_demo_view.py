@@ -110,7 +110,7 @@ def render():
                     st.error(mensagem)
     
     else:
-        st.info("📭 Nenhum usuário cadastrado ainda. Crie um acima!")
+        st.error("📭 Nenhum usuário cadastrado ainda. Crie um acima!")
     
     # Debug info
     st.markdown("---")

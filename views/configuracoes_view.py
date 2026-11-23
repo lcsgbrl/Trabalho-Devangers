@@ -48,6 +48,9 @@ def render():
     with st.form("password_form"):
         st.markdown("###### Segurança")
         st.caption("Altere sua senha de acesso.")
+        st.caption(
+            "⚠ Dica: uma senha forte deve conter letras maiúsculas, "
+            "letras minúsculas, números e caracteres especiais.")
         nova = st.text_input("Nova senha *", type="password", placeholder="Mínimo 6 caracteres")
         confirmar = st.text_input("Confirmar nova senha *", type="password")
         if st.form_submit_button("Alterar senha", type="primary"):

@@ -2,6 +2,7 @@
 """[VIEW] Menu inicial — equivalente a src/pages/Menu.tsx."""
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from controllers import auth_controller, session_controller
 from models import domain_data as data
@@ -10,24 +11,24 @@ from views.components import TEXT_DARK, TEXT_MUTED, badge_html
 ALL_CARDS = [
     {
         "to": "dashboard", "roles": ["Professor", "Coordenador", "Administrador"],
-        "icon": "📊", "label": "Dashboard",
+        "icon": "chart", "label": "Dashboard",
         "desc": "Visualize informações e indicadores importantes do sistema.",
         "color": "#8B0019", "bg": "#FFF0F2",
     },
     {
         "to": "reservas", "roles": ["Aluno", "Professor", "Coordenador", "Administrador"],
-        "icon": "🗓️",
+        "icon": "calendar",
         "label": lambda role: "Ambientes e Solicitações" if role == "Aluno" else "Reservas",
         "desc": lambda role: (
             "Consulte salas disponíveis e envie solicitações de reserva."
             if role == "Aluno" else
-            "Consulte, crie e gerencie reservas de ambientes."
+            "Consulte, crie e gerencie todas as reservas de ambientes."
         ),
         "color": "#1E5E60", "bg": "#E3ECEE",
     },
     {
         "to": "membros", "roles": ["Administrador"],
-        "icon": "👥", "label": "Membros",
+        "icon": "users", "label": "Membros",
         "desc": "Gerencie os membros e organize as informações da equipe.",
         "color": "#3C5E53", "bg": "#E8EFE2",
     },
@@ -40,6 +41,54 @@ WELCOME_MSG = {
     "Administrador": "Gerencie reservas, ambientes e membros em um só lugar.",
 }
 
+def get_icon(name, color):
+    icons = {
+        "chart": """
+            <path d="M3 3v16a2 2 0 0 0 2 2h16"/>
+            <path d="m7 14 4-4 4 4 6-6"/>
+            <path d="M17 8h4v4"/>
+        """,
+        "calendar": """
+            <rect x="3" y="5" width="18" height="16" rx="2"/>
+            <path d="M16 3v4M8 3v4M3 11h18"/>
+            <path d="M8 15h.01M12 15h.01M16 15h.01"/>
+        """,
+        "users": """
+            <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="10" cy="7" r="4"/>
+            <path d="M20 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        """
+    }
+
+    return f"""
+    <style>
+        html, body {{
+            margin: 0;
+            padding: 0;
+            width: 48px;
+            height: 48px;
+            overflow: hidden;
+        }}
+        svg {{
+            display: block;
+        }}
+    </style>
+
+    <svg xmlns="http://www.w3.org/2000/svg"
+         width="48" height="48"
+         viewBox="0 0 48 48">
+        <rect width="48" height="48" rx="12" fill="{color}"/>
+        <g transform="translate(12 12)"
+           fill="none"
+           stroke="#FFFFFF"
+           stroke-width="1.8"
+           stroke-linecap="round"
+           stroke-linejoin="round">
+            {icons[name]}
+        </g>
+    </svg>
+    """
 
 def render():
     user = auth_controller.current_user()
@@ -64,13 +113,15 @@ def render():
         label = card["label"](user["role"]) if callable(card["label"]) else card["label"]
         desc = card["desc"](user["role"]) if callable(card["desc"]) else card["desc"]
         with col:
-            with st.container(border=True):
-                st.markdown(
-                    f"<div style='width:48px;height:48px;border-radius:12px;background:{card['bg']};"
-                    f"display:flex;align-items:center;justify-content:center;font-size:1.4rem;'>"
-                    f"{card['icon']}</div>",
-                    unsafe_allow_html=True,
+            with st.container(border=True, height=240):
+                
+                components.html(
+                    get_icon(card["icon"], card["color"]),
+                    width=48,
+                    height=48,
+                    scrolling=False
                 )
+
                 st.markdown(f"**{label}**")
                 st.caption(desc)
                 if st.button("Acessar →", key=f"menu_{card['to']}", use_container_width=True):

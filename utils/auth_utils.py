@@ -3,12 +3,15 @@ utils/auth_utils.py
 
 Utilitários para autenticação com Firebase Authentication.
 """
+import secrets
+import smtplib
+import string
+from email.message import EmailMessage
 
 import streamlit as st
 import firebase_admin
 import requests
 from firebase_admin import auth, credentials
-
 
 def autenticar_usuario(email: str, senha: str):
     """
@@ -257,3 +260,61 @@ def validar_email(email: str) -> bool:
 def validar_senha(senha: str) -> bool:
     """Valida força da senha"""
     return len(senha) >= 6
+
+def gerar_senha_temporaria(tamanho: int = 8) -> str:
+    """Gera uma senha temporária aleatória segura."""
+    maiusculas = string.ascii_uppercase
+    minusculas = string.ascii_lowercase
+    digitos = string.digits
+    simbolos = "@#$%"
+
+    obrigatorios = [
+        secrets.choice(maiusculas),
+        secrets.choice(minusculas),
+        secrets.choice(digitos),
+        secrets.choice(simbolos),
+    ]
+    todos = maiusculas + minusculas + digitos + simbolos
+    restante = [secrets.choice(todos) for _ in range(max(tamanho - 4, 4))]
+    caracteres = obrigatorios + restante
+    secrets.SystemRandom().shuffle(caracteres)
+    return "".join(caracteres)
+
+
+def enviar_email_primeiro_acesso(destinatario: str, nome: str, senha_temporaria: str) -> tuple[bool, str]:
+    """Envia automaticamente por SMTP a senha temporária e instruções de primeiro acesso."""
+    try:
+        smtp_cfg = st.secrets["smtp"]
+        remetente = smtp_cfg["email_remetente"]
+        senha_app = smtp_cfg["senha_app"].replace(" ", "")
+
+        msg = EmailMessage()
+        msg["Subject"] = "SGA - Dados de Primeiro Acesso"
+        msg["From"] = f"Sistema de Gestão de Ambientes <{remetente}>"
+        msg["To"] = destinatario
+
+        corpo = (
+            f"Olá, {nome}!\n\n"
+            "Seu pré-cadastro no Sistema de Gestão de Ambientes (SGA) foi realizado.\n\n"
+            "Seus dados de acesso inicial são:\n"
+            f"• E-mail: {destinatario}\n"
+            f"• Senha temporária: {senha_temporaria}\n\n"
+            "Para ativar sua conta:\n"
+            "1. Acesse a tela de login do SGA;\n"
+            "2. Clique no botão 'Primeiro Acesso';\n"
+            "3. Informe seu nome, e-mail, a senha temporária acima, sua nova senha definitiva, curso, turma e matéria.\n\n"
+            "Atenciosamente,\n"
+            "Equipe SGA"
+        )
+        msg.set_content(corpo)
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
+            server.login(remetente, senha_app)
+            server.send_message(msg)
+
+        return True, "E-mail com senha temporária enviado com sucesso."
+
+    except KeyError:
+        return False, "Configuração [smtp] não encontrada em secrets.toml."
+    except Exception as e:
+        return False, f"Falha ao enviar e-mail SMTP: {e}"

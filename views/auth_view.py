@@ -137,26 +137,54 @@ def _render_login():
                 else:
                     st.error(mensagem)
 
-def _render_registration():
-    st.markdown('<div class="auth-label">Novo cadastro</div>', unsafe_allow_html=True)
-    st.markdown('<div class="auth-card-title">Criar sua conta</div>', unsafe_allow_html=True)
-    st.markdown('<div class="auth-card-subtitle">Seus dados serão salvos no Firebase para aprovação e acesso.</div>', unsafe_allow_html=True)
 
-    with st.form("registro_form"):
-        nome = st.text_input("Nome completo", placeholder="João Silva")
-        email = st.text_input("E-mail", placeholder="seu@email.com")
-        senha = st.text_input("Senha", type="password", placeholder="Mínimo de 6 caracteres")
-        confirmar = st.text_input("Confirmar senha", type="password")
-        submitted = st.form_submit_button("Criar conta", type="primary", use_container_width=True)
+def _render_first_access_form():
+    st.markdown('<div class="auth-label">Ativação institucional</div>', unsafe_allow_html=True)
+    st.markdown('<div class="auth-card-title">Primeiro Acesso</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="auth-card-subtitle">Informe os dados recebidos no seu pré-cadastro, defina sua nova senha e vincule seu curso, turma e matéria.</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.form("primeiro_acesso_form"):
+        nome = st.text_input("Nome completo", placeholder="Ex.: Mirela Silva")
+        email = st.text_input("E-mail institucional", placeholder="seu@email.com")
+        col1, col2 = st.columns(2)
+        with col1:
+            senha_temp = st.text_input("Senha temporária", type="password", placeholder="Recebida por e-mail")
+        with col2:
+            nova_senha = st.text_input("Nova senha definitiva", type="password", placeholder="Mínimo 6 caracteres")
+            st.caption(
+                "⚠ Dica para criar uma senha mais segura: combine letras maiúsculas, "
+            "letras minúsculas, números e caracteres especiais."
+        )
+        confirmar_senha = st.text_input("Confirmar nova senha", type="password", placeholder="Repita a nova senha")
+
+        col_c, col_t = st.columns(2)
+        with col_c:
+            curso = st.text_input("Curso", placeholder="Ex.: Engenharia de Software")
+        with col_t:
+            turma = st.text_input("Turma", placeholder="Ex.: ESW-2026-1")
+
+        materia = st.text_input("Matéria / Disciplina", placeholder="Ex.: Banco de Dados")
+        submitted = st.form_submit_button("Concluir primeiro acesso", type="primary", use_container_width=True)
 
     if submitted:
-        if not nome.strip() or not email.strip() or not senha:
-            st.error("Preencha todos os campos.")
-        elif senha != confirmar:
-            st.error("As senhas não conferem.")
+        if not all([nome.strip(), email.strip(), senha_temp, nova_senha, curso.strip(), turma.strip(), materia.strip()]):
+            st.error("Preencha todos os campos obrigatórios.")
+        elif nova_senha != confirmar_senha:
+            st.error("A nova senha e a confirmação não conferem.")
         else:
-            with st.spinner("Criando conta..."):
-                sucesso, mensagem = auth_controller.fazer_registro(email.strip(), senha, nome.strip())
+            with st.spinner("Validando pré-cadastro..."):
+                sucesso, mensagem = auth_controller.concluir_primeiro_acesso(
+                    nome=nome,
+                    email=email,
+                    senha_temporaria=senha_temp,
+                    nova_senha=nova_senha,
+                    curso=curso,
+                    turma=turma,
+                    materia=materia,
+                )
             if sucesso:
                 st.success(mensagem)
                 st.session_state.auth_tab = "login"
@@ -172,16 +200,16 @@ def _render_registration():
 def _render_first_access():
     st.markdown(
         '<div class="first-access"><div class="auth-label">Primeiro acesso</div>'
-        '<p>Ainda não possui uma conta institucional?</p></div>',
+        '<p>Recebeu um pré-cadastro da sua instituição com senha temporária?</p></div>',
         unsafe_allow_html=True,
     )
-    if st.button("Criar nova conta", use_container_width=True):
-        st.session_state.auth_tab = "registro"
+    if st.button("Primeiro Acesso", type="primary", use_container_width=True):
+        st.session_state.auth_tab = "primeiro_acesso"
         st.rerun()
 
 
 def render():
-    """Renderiza a tela única de login e cadastro."""
+    """Renderiza a tela única de login e primeiro acesso."""
     _inject_auth_css()
 
     left, right = st.columns([1, 1.03], gap="small")
@@ -190,12 +218,12 @@ def render():
 
     with right:
         st.markdown('<span class="auth-panel-marker"></span>', unsafe_allow_html=True)
-        if st.session_state.get("auth_tab", "login") == "login":
+        tab = st.session_state.get("auth_tab", "login")
+        if tab == "primeiro_acesso":
+            _render_first_access_form()
+        else:
             _render_login()
             _render_first_access()
-        else:
-            _render_registration()
-
 
 def render_user_menu():
     """Renderiza o menu do usuário logado na barra lateral."""

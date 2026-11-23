@@ -14,7 +14,7 @@ Este arquivo é o Front Controller: inicializa Firebase, manage autenticação e
 import streamlit as st
 import os
 
-from controllers import auth_controller, session_controller
+from controllers import auth_controller, session_controller, reservas_controller
 from views import auth_view, layout_view
 from views.components import inject_css
 from utils.firebase_utils import init_firestore
@@ -68,6 +68,13 @@ def main():
         auth_view.render()
         return
     
+        # Carrega as reservas do Firestore antes de abrir as telas
+    try:
+        reservas_controller.carregar_solicitacoes()
+    except Exception as e:
+        st.error(f"Erro ao carregar as reservas: {e}")
+        st.stop()
+        
     # Usuário logado - renderizar app principal
     route = session_controller.current_route()
     

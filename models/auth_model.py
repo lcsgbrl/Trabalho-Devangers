@@ -7,13 +7,166 @@ Integra Firebase Auth + Firestore com suporte multi-instituição.
 """
 
 import streamlit as st
-from datetime import datetime
 from firebase_admin import auth
+from models import academico_model
 from utils import auth_utils
 from utils.datetime_utils import agora_br
 
 INSTITUICAO_PADRAO_ID = "inst_001"
 CODIGO_INSTITUICAO_PADRAO = "SGA2026"
+
+
+def _normalizar_role(role_raw: str | None) -> str:
+    r = (role_raw or "").strip().lower()
+    if r in ("professor",):
+        return "professor"
+    if r in ("coordenador",):
+        return "coordenador"
+    if r in ("admin", "administrador"):
+        return "admin"
+    return "aluno"
+
+
+def consultar_perfil_primeiro_acesso(nome: str, email: str) -> dict:
+    """
+    Consulta o pré-cadastro pelo e-mail nas coleções `usuarios` e `membros`
+    para identificar o perfil (role) e a instituição antes de concluir o primeiro acesso.
+    """
+    email_limpo = (email or "").strip().lower()
+    nome_limpo = (nome or "").strip()
+
+    if not email_limpo or not auth_utils.validar_email(email_limpo):
+        return {
+            "encontrado": False,
+            "role_normalizado": None,
+            "role_raw": None,
+            "instituicao_id": INSTITUICAO_PADRAO_ID,
+            "nome_cadastrado": "",
+            "mensagem": "Informe um e-mail válido para identificar seu perfil.",
+        }
+
+    db = st.session_state.get("firestore_db")
+    if not db:
+        return {
+            "encontrado": False,
+            "role_normalizado": None,
+            "role_raw": None,
+            "instituicao_id": INSTITUICAO_PADRAO_ID,
+            "nome_cadastrado": "",
+            "mensagem": "Conexão com o banco indisponível no momento.",
+        }
+
+    try:
+        # 1. Busca na coleção `usuarios`
+        user_doc = next(
+            db.collection("usuarios").where("email", "==", email_limpo).limit(1).stream(),
+            None,
+        )
+        # Fallback caso o e-mail tenha sido salvo com maiúsculas/minúsculas mistas
+        if not user_doc and (email or "").strip():
+            user_doc = next(
+                db.collection("usuarios")
+                .where("email", "==", (email or "").strip())
+                .limit(1)
+                .stream(),
+                None,
+            )
+
+        # 2. Busca na coleção `membros` (caso exista lá com funcao/instituicao_id)
+        membro_doc = next(
+            db.collection("membros").where("email", "==", email_limpo).limit(1).stream(),
+            None,
+        )
+        if not membro_doc and (email or "").strip():
+            membro_doc = next(
+                db.collection("membros")
+                .where("email", "==", (email or "").strip())
+                .limit(1)
+                .stream(),
+                None,
+            )
+
+        dados_user = user_doc.to_dict() if user_doc else {}
+        dados_membro = membro_doc.to_dict() if membro_doc else {}
+
+        if not dados_user and not dados_membro:
+            return {
+                "encontrado": False,
+                "role_normalizado": None,
+                "role_raw": None,
+                "instituicao_id": INSTITUICAO_PADRAO_ID,
+                "nome_cadastrado": "",
+                "mensagem": "Pré-cadastro não encontrado para este e-mail. Verifique com o administrador.",
+            }
+
+        if dados_user.get("ativo") is False or dados_membro.get("status") == "Inativo":
+            return {
+                "encontrado": False,
+                "role_normalizado": None,
+                "role_raw": None,
+                "instituicao_id": dados_user.get("instituicao_id")
+                or dados_membro.get("instituicao_id")
+                or INSTITUICAO_PADRAO_ID,
+                "nome_cadastrado": dados_user.get("nome") or dados_membro.get("nome") or "",
+                "mensagem": "Esta conta está inativa. Procure o administrador.",
+            }
+
+        role_raw = dados_user.get("role") or dados_membro.get("funcao") or "usuario"
+        role_norm = _normalizar_role(role_raw)
+        inst_id = (
+            dados_user.get("instituicao_id")
+            or dados_membro.get("instituicao_id")
+            or INSTITUICAO_PADRAO_ID
+        )
+        nome_cadastrado = (dados_user.get("nome") or dados_membro.get("nome") or "").strip()
+
+        alerta_nome = ""
+        if nome_limpo and nome_cadastrado and nome_limpo.lower() != nome_cadastrado.lower():
+            alerta_nome = f" (cadastrado como: {nome_cadastrado})"
+
+        rotulo_perfil = {
+            "professor": "Professor",
+            "aluno": "Aluno",
+            "coordenador": "Coordenador",
+            "admin": "Administrador",
+        }.get(role_norm, "Usuário")
+
+        return {
+            "encontrado": True,
+            "role_normalizado": role_norm,
+            "role_raw": role_raw,
+            "instituicao_id": inst_id,
+            "nome_cadastrado": nome_cadastrado,
+            "mensagem": f"Perfil identificado: {rotulo_perfil}{alerta_nome}.",
+        }
+
+    except Exception as e:
+        return {
+            "encontrado": False,
+            "role_normalizado": None,
+            "role_raw": None,
+            "instituicao_id": INSTITUICAO_PADRAO_ID,
+            "nome_cadastrado": "",
+            "mensagem": f"Erro ao consultar pré-cadastro: {e}",
+        }
+
+
+def carregar_academico_primeiro_acesso(instituicao_id: str | None = None) -> dict:
+    """
+    Carrega núcleos, cursos, turmas e disciplinas da instituição para popular
+    as listas do Primeiro Acesso antes do login.
+    """
+    inst_id = instituicao_id or INSTITUICAO_PADRAO_ID
+    try:
+        return academico_model.listar_academico_firestore(inst_id)
+    except Exception:
+        return {
+            "nucleos": [],
+            "cursos": [],
+            "turmas": [],
+            "disciplinas": [],
+            "max_id": 0,
+        }
 
 
 def validar_codigo_instituicao(codigo: str):
@@ -37,7 +190,6 @@ def validar_codigo_instituicao(codigo: str):
     inst_doc = next(docs, None)
 
     if not inst_doc:
-        # Fallback para o MVP caso a coleção ainda não tenha sido populada manualmente
         if codigo_limpo == CODIGO_INSTITUICAO_PADRAO:
             return True, INSTITUICAO_PADRAO_ID, "Instituição padrão identificada."
         return False, None, "Código de instituição inválido."
@@ -59,8 +211,6 @@ def criar_nova_conta(
     Cria uma nova conta no Firebase Authentication
     e salva o perfil no Firestore vinculado à instituição.
     """
-
-    # 1. Validar os dados básicos
     if not auth_utils.validar_email(email):
         return False, None, "E-mail inválido."
 
@@ -70,19 +220,15 @@ def criar_nova_conta(
     if len(nome) < 3:
         return False, None, "O nome deve ter no mínimo 3 caracteres."
 
-    # 2. Validar código da instituição antes de criar o usuário no Auth
     inst_valida, instituicao_id, msg_inst = validar_codigo_instituicao(codigo_instituicao)
     if not inst_valida:
         return False, None, msg_inst
 
-    # 3. Criar usuário no Firebase Authentication
     sucesso, uid, mensagem = auth_utils.registrar_usuario(email, senha)
-
     if not sucesso:
         return False, None, mensagem
 
     try:
-        # 4. Criar perfil no Firestore já com instituicao_id
         db = st.session_state.firestore_db
 
         perfil_usuario = {
@@ -98,7 +244,6 @@ def criar_nova_conta(
 
         db.collection("usuarios").document(uid).set(perfil_usuario)
 
-        # 5. Enviar e-mail de confirmação
         email_enviado, mensagem_email = auth_utils.enviar_verificacao_email(
             email, senha
         )
@@ -125,15 +270,11 @@ def fazer_login(email: str, senha: str):
     """
     Autentica o usuário e verifica seu perfil no Firestore.
     """
-
-    # 1. Autenticar e-mail e senha
     sucesso, uid, mensagem = auth_utils.autenticar_usuario(email, senha)
-
     if not sucesso:
         return False, None, mensagem
 
     try:
-        # 2. Verificar se o e-mail foi confirmado
         usuario = auth.get_user(uid)
 
         if not usuario.email_verified:
@@ -142,7 +283,6 @@ def fazer_login(email: str, senha: str):
                 "Verifique sua caixa de entrada."
             )
 
-        # 3. Buscar perfil no Firestore
         db = st.session_state.firestore_db
         doc = db.collection("usuarios").document(uid).get()
 
@@ -151,11 +291,9 @@ def fazer_login(email: str, senha: str):
 
         perfil = doc.to_dict()
 
-        # 4. Verificar se a conta está ativa
         if not perfil.get("ativo"):
             return False, None, "Esta conta está inativa."
 
-        # 5. Garantir retrocompatibilidade para contas antigas sem instituicao_id
         atualizacoes = {}
         if not perfil.get("email_verificado"):
             atualizacoes["email_verificado"] = True
@@ -167,10 +305,7 @@ def fazer_login(email: str, senha: str):
         if atualizacoes:
             db.collection("usuarios").document(uid).update(atualizacoes)
 
-        # Salvar instituicao_id na sessão do Streamlit para uso global nos models
         st.session_state["instituicao_id"] = perfil["instituicao_id"]
-
-        # 6. Login concluído
         return True, uid, f"Bem-vindo, {perfil.get('nome')}!"
 
     except Exception:
@@ -201,7 +336,6 @@ def atualizar_perfil(uid: str, dados: dict):
     """Atualiza o perfil do usuário no Firestore."""
     try:
         db = st.session_state.firestore_db
-        # Impede alteração acidental de instituicao_id pelo perfil comum
         dados_seguros = {k: v for k, v in dados.items() if k != "instituicao_id"}
         dados_seguros["atualizado_em"] = agora_br()
 
@@ -226,17 +360,15 @@ def atualizar_dados_conta(uid: str, nome: str, novo_email: str, email_atual: str
 
     if not auth_utils.validar_email(email_limpo):
         return False, "Informe um endereço de e-mail válido (ex.: nome@dominio.com)."
-    
+
     if not auth_utils.dominio_email_existe(email_limpo):
         return False, "O domínio deste e-mail não existe ou não recebe mensagens."
 
-    # 1. Se o e-mail foi alterado, atualiza primeiro no Firebase Authentication
     if email_limpo != email_antigo:
         sucesso_auth, msg_auth = auth_utils.atualizar_email(uid, email_limpo)
         if not sucesso_auth:
             return False, msg_auth.replace("❌ ", "")
 
-    # 2. Atualiza no Firestore (coleção `usuarios` e `membros`)
     try:
         db = st.session_state.firestore_db
         db.collection("usuarios").document(uid).update({
@@ -245,7 +377,6 @@ def atualizar_dados_conta(uid: str, nome: str, novo_email: str, email_atual: str
             "atualizado_em": agora_br(),
         })
 
-        # Sincroniza também na coleção `membros` (por uid ou e-mail antigo)
         membros_ref = db.collection("membros")
         docs_por_uid = list(membros_ref.where("uid", "==", uid).limit(1).stream())
         alvo_doc = docs_por_uid[0] if docs_por_uid else next(
@@ -261,7 +392,6 @@ def atualizar_dados_conta(uid: str, nome: str, novo_email: str, email_atual: str
         return True, "Perfil atualizado com sucesso."
 
     except Exception as e:
-        # Reverte o e-mail no Firebase Auth caso o Firestore falhe
         if email_limpo != email_antigo:
             auth_utils.atualizar_email(uid, email_antigo)
         return False, f"Erro ao salvar perfil no banco de dados: {e}"
@@ -289,24 +419,28 @@ def deletar_conta_completa(uid: str):
 
     except Exception as e:
         return False, f"Erro: {str(e)}"
-    
+
+
 def concluir_primeiro_acesso(
     nome: str,
     email: str,
     senha_temporaria: str,
     nova_senha: str,
-    curso: str,
-    turma: str,
-    materia: str,
+    cursos_ids: list[int] | None = None,
+    turma_id: int | None = None,
+    disciplinas_ids: list[int] | None = None,
 ):
     """
     Valida o pré-cadastro com a senha temporária, atualiza para a nova senha
-    no Firebase Auth e grava o vínculo acadêmico no Firestore.
+    no Firebase Auth e grava o vínculo acadêmico conforme o perfil no Firestore.
     """
-    if len(nome.strip()) < 3:
+    nome_limpo = (nome or "").strip()
+    email_limpo = (email or "").strip().lower()
+
+    if len(nome_limpo) < 3:
         return False, "Informe seu nome completo."
 
-    if not auth_utils.validar_email(email):
+    if not auth_utils.validar_email(email_limpo):
         return False, "E-mail inválido."
 
     if not senha_temporaria:
@@ -318,8 +452,7 @@ def concluir_primeiro_acesso(
     if senha_temporaria == nova_senha:
         return False, "A nova senha deve ser diferente da senha temporária."
 
-    # 1. Valida e-mail e senha temporária no Firebase Auth
-    sucesso, uid, _ = auth_utils.autenticar_usuario(email.strip(), senha_temporaria)
+    sucesso, uid, _ = auth_utils.autenticar_usuario(email_limpo, senha_temporaria)
     if not sucesso:
         return False, "E-mail ou senha temporária inválidos."
 
@@ -335,35 +468,106 @@ def concluir_primeiro_acesso(
         if not perfil.get("ativo", True):
             return False, "Esta conta está inativa."
 
-        # 2. Atualiza para a senha definitiva e marca e-mail como verificado no Auth
+        inst_id = perfil.get("instituicao_id") or INSTITUICAO_PADRAO_ID
+        role_norm = _normalizar_role(perfil.get("role"))
+
+        cursos_ids = list(cursos_ids or [])
+        disciplinas_ids = list(disciplinas_ids or [])
+
+        # Resolve nomes legíveis a partir da estrutura acadêmica da instituição
+        acad = academico_model.listar_academico_firestore(inst_id)
+        cursos_mapa = {c["id"]: c["nome"] for c in acad.get("cursos", [])}
+        turmas_mapa = {t["id"]: t["nome"] for t in acad.get("turmas", [])}
+        discs_mapa = {d["id"]: d["nome"] for d in acad.get("disciplinas", [])}
+
+        if role_norm == "professor":
+            if not cursos_ids:
+                return False, "Selecione pelo menos um curso para o seu perfil de professor."
+            vinculo_usuario = {
+                "cursosIds": cursos_ids,
+                "cursos": [cursos_mapa[cid] for cid in cursos_ids if cid in cursos_mapa],
+                "curso": cursos_mapa.get(cursos_ids[0], ""),
+                "turmaId": None,
+                "turma": "",
+                "disciplinasIds": [],
+                "materias": [],
+            }
+            vinculo_membro = {
+                "cursosIds": cursos_ids,
+                "cursos": vinculo_usuario["cursos"],
+                "curso": vinculo_usuario["curso"],
+                "turma": "",
+                "materia": "",
+            }
+        elif role_norm == "aluno":
+            if not cursos_ids:
+                return False, "Selecione o seu curso."
+            if turma_id is None:
+                return False, "Selecione a sua turma."
+            if not disciplinas_ids:
+                return False, "Selecione pelo menos uma disciplina/matéria."
+
+            curso_principal_id = cursos_ids[0]
+            curso_nome = cursos_mapa.get(curso_principal_id, "")
+            turma_nome = turmas_mapa.get(turma_id, "")
+            nomes_discs = [discs_mapa[did] for did in disciplinas_ids if did in discs_mapa]
+
+            vinculo_usuario = {
+                "cursosIds": [curso_principal_id],
+                "cursos": [curso_nome] if curso_nome else [],
+                "curso": curso_nome,
+                "turmaId": turma_id,
+                "turma": turma_nome,
+                "disciplinasIds": disciplinas_ids,
+                "materias": nomes_discs,
+                "materia": ", ".join(nomes_discs),
+            }
+            vinculo_membro = {
+                "cursosIds": [curso_principal_id],
+                "curso": curso_nome,
+                "turmaId": turma_id,
+                "turma": turma_nome,
+                "disciplinasIds": disciplinas_ids,
+                "materias": nomes_discs,
+                "materia": ", ".join(nomes_discs),
+            }
+        else:
+            # Coordenador ou Administrador
+            vinculo_usuario = {
+                "cursosIds": cursos_ids,
+                "turmaId": turma_id,
+                "disciplinasIds": disciplinas_ids,
+            }
+            vinculo_membro = {}
+
         auth.update_user(uid, password=nova_senha, email_verified=True)
 
-        # 3. Atualiza perfil no Firestore com curso, turma e matéria
         atualizacoes = {
-            "nome": nome.strip(),
-            "curso": curso.strip(),
-            "turma": turma.strip(),
-            "materia": materia.strip(),
+            "nome": nome_limpo,
+            **vinculo_usuario,
             "primeiro_acesso": False,
             "email_verificado": True,
             "atualizado_em": agora_br(),
         }
         doc_ref.update(atualizacoes)
 
-        # 4. Atualiza também o registro na coleção membros (se existir)
-        membros_docs = (
-            db.collection("membros")
-            .where("email", "==", email.strip())
-            .limit(1)
-            .stream()
+        membro_doc = next(
+            db.collection("membros").where("email", "==", email_limpo).limit(1).stream(),
+            None,
         )
-        membro_doc = next(membros_docs, None)
+        if not membro_doc and (email or "").strip():
+            membro_doc = next(
+                db.collection("membros")
+                .where("email", "==", (email or "").strip())
+                .limit(1)
+                .stream(),
+                None,
+            )
+
         if membro_doc:
             db.collection("membros").document(membro_doc.id).update({
-                "nome": nome.strip(),
-                "curso": curso.strip(),
-                "turma": turma.strip(),
-                "materia": materia.strip(),
+                "nome": nome_limpo,
+                **vinculo_membro,
                 "primeiroAcesso": False,
                 "status": "Ativo",
             })

@@ -258,14 +258,26 @@ def current_user():
 
     return perfil
 
+def consultar_perfil_primeiro_acesso(nome: str, email: str) -> dict:
+    """Consulta o perfil pré-cadastrado para adaptar os campos do Primeiro Acesso."""
+    init_auth_state()
+    return auth_model.consultar_perfil_primeiro_acesso(nome=nome, email=email)
+
+
+def carregar_academico_primeiro_acesso(instituicao_id: str | None = None) -> dict:
+    """Carrega cursos, turmas e disciplinas para as listas do Primeiro Acesso."""
+    init_auth_state()
+    return auth_model.carregar_academico_primeiro_acesso(instituicao_id=instituicao_id)
+
+
 def concluir_primeiro_acesso(
     nome: str,
     email: str,
     senha_temporaria: str,
     nova_senha: str,
-    curso: str,
-    turma: str,
-    materia: str,
+    cursos_ids: list[int] | None = None,
+    turma_id: int | None = None,
+    disciplinas_ids: list[int] | None = None,
 ):
     init_auth_state()
     return auth_model.concluir_primeiro_acesso(
@@ -273,8 +285,7 @@ def concluir_primeiro_acesso(
         email=email,
         senha_temporaria=senha_temporaria,
         nova_senha=nova_senha,
-        curso=curso,
-        turma=turma,
-        materia=materia,
+        cursos_ids=cursos_ids,
+        turma_id=turma_id,
+        disciplinas_ids=disciplinas_ids,
     )
-    return perfil

@@ -1,12 +1,13 @@
-# -- coding: utf-8 --
+# -*- coding: utf-8 -*-
 """
 [MODEL] Entidade Sala (ambiente).
 
 Unifica as regras de validação de sala com a persistência no Firestore
-isolada por instituicao_id.
+isolada por instituicao_id e disparo de notificações aos afetados.
 """
 
 import streamlit as st
+from models import notificacao_model
 
 INSTITUICAO_PADRAO_ID = "inst_001"
 COLECAO_SALAS = "salas"
@@ -77,11 +78,16 @@ def add_sala(salas: list, sala: dict) -> dict:
     return novo
 
 
-def update_sala(salas: list, sala_id: int, data_new: dict) -> None:
+def update_sala(salas: list, sala_id: int, data_new: dict) -> int:
+    """Atualiza a sala; se mudou para Manutenção, cancela reservas ativas e notifica."""
     _validar_sala(data_new)
     inst_id = _get_instituicao_id()
+    notificados = 0
+
     for i, s in enumerate(salas):
         if s["id"] == sala_id:
+            status_anterior = s.get("status")
+            nome_anterior = s.get("nome", "")
             atualizado = {**data_new, "id": sala_id, "instituicao_id": inst_id}
             salas[i] = atualizado
 
@@ -89,12 +95,22 @@ def update_sala(salas: list, sala_id: int, data_new: dict) -> None:
             if db:
                 db.collection(COLECAO_SALAS).document(
                     _doc_id(inst_id, sala_id)).set(atualizado)
-            return
+
+            if status_anterior != "Manutenção" and atualizado.get("status") == "Manutenção":
+                notificados = notificacao_model.notificar_reservas_afetadas(
+                    st.session_state.get("solicitacoes", []),
+                    nome_anterior,
+                    acao="manutencao",
+                )
+            return notificados
+    return 0
 
 
-def toggle_manutencao(salas: list, sala_id: int) -> None:
+def toggle_manutencao(salas: list, sala_id: int) -> int:
     """Alterna Disponível/Manutenção; uma sala Inativa volta a Disponível."""
     inst_id = _get_instituicao_id()
+    notificados = 0
+
     for s in salas:
         if s["id"] == sala_id:
             novo_status = "Manutenção" if s["status"] == "Disponível" else "Disponível"
@@ -105,7 +121,35 @@ def toggle_manutencao(salas: list, sala_id: int) -> None:
                 db.collection(COLECAO_SALAS).document(_doc_id(inst_id, sala_id)).update({
                     "status": novo_status
                 })
-            return
+
+            if novo_status == "Manutenção":
+                notificados = notificacao_model.notificar_reservas_afetadas(
+                    st.session_state.get("solicitacoes", []),
+                    s["nome"],
+                    acao="manutencao",
+                )
+            return notificados
+    return 0
+
+
+def delete_sala(salas: list, solicitacoes: list, sala_id: int) -> int:
+    """Exclui a sala do Firestore/sessão, cancela reservas ativas nela e notifica."""
+    inst_id = _get_instituicao_id()
+    sala = get_sala_by_id(salas, sala_id)
+    if not sala:
+        return 0
+
+    notificados = notificacao_model.notificar_reservas_afetadas(
+        solicitacoes, sala["nome"], acao="excluida"
+    )
+
+    salas[:] = [s for s in salas if s["id"] != sala_id]
+
+    db = _get_db()
+    if db:
+        db.collection(COLECAO_SALAS).document(_doc_id(inst_id, sala_id)).delete()
+
+    return notificados
 
 
 def get_sala_by_id(salas: list, sala_id: int) -> dict | None:

@@ -5,7 +5,7 @@
 Unifica validação de horários e conflitos com persistência no Firestore
 isolada por instituicao_id.
 """
-
+from utils.datetime_utils import agora_str
 from datetime import datetime
 import streamlit as st
 
@@ -30,7 +30,7 @@ def _validar_horario(inicio: str, fim: str) -> None:
 
 
 def _now_str() -> str:
-    return datetime.now().strftime("%d/%m/%Y %H:%M")
+    return agora_str()
 
 
 def _get_db():

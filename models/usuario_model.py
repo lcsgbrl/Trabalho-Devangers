@@ -4,7 +4,7 @@ models/usuario_model.py
 
 Model para gerenciar usuários no Firestore isolados por instituicao_id.
 """
-
+from utils.datetime_utils import agora_br
 import streamlit as st
 from datetime import datetime
 
@@ -41,7 +41,7 @@ def criar_usuario(
         "email": email,
         "role": role,
         "instituicao_id": inst_id,
-        "criado_em": datetime.now(),
+        "criado_em": agora_br(),
         "ativo": True,
     }
 
@@ -105,7 +105,7 @@ def atualizar_usuario(identificador: str, dados: dict, instituicao_id: str = Non
     dados_seguros = {k: v for k, v in dados.items() if k != "instituicao_id"}
     db.collection("usuarios").document(usuario["id"]).update({
         **dados_seguros,
-        "atualizado_em": datetime.now(),
+        "atualizado_em": agora_br(),
     })
 
 

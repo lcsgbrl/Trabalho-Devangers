@@ -8,6 +8,7 @@ sincronizando cada operação com o Firestore isolada por instituicao_id.
 from datetime import datetime
 from utils import auth_utils
 import streamlit as st
+from utils.datetime_utils import agora_br
 
 INSTITUICAO_PADRAO_ID = "inst_001"
 COLECAO_MEMBROS = "membros"
@@ -194,7 +195,7 @@ def add_member_directly(members: list, next_id: int, m: dict) -> tuple[dict, int
                 "ativo": m.get("status", "Ativo") == "Ativo",
                 "email_verificado": False,
                 "primeiro_acesso": True,
-                "criado_em": datetime.now(),
+                "criado_em": agora_br(),
             }
             db.collection(COLECAO_USUARIOS).document(uid).set(perfil_usuario)
 

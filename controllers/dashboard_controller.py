@@ -2,7 +2,6 @@
 """Preparação dos indicadores exibidos no Dashboard a partir dos dados atuais."""
 
 from datetime import date, datetime, timedelta
-from utils.datetime_utils import agora_br, hoje_br
 import streamlit as st
 from utils.datetime_utils import agora_br, formatar_data_br, hoje_br
 from models import solicitacao_model
@@ -23,7 +22,7 @@ PROF_TIME_PERIODS = (
 
 
 def _parse_pt_date(value: str) -> date:
-    return datetime.strptime(value, "%d/%m/%Y").date()
+    return datetime.strptime(formatar_data_br(value), "%d/%m/%Y").date()
 
 
 def _parse_minutes(value: str) -> int:
@@ -117,6 +116,23 @@ def professor_dashboard_data(user_name: str, my_reservas: list, periodo_label: s
         ]
     else:
         insights.append("Ainda não há reservas realizadas neste período.")
+        
+    future = sorted(
+        [r for r in valid if _parse_pt_date(r["data"]) >= today],
+        key=lambda r: (_parse_pt_date(r["data"]), r["inicio"]),
+    )
+    proximas_reservas = []
+    for r in future[:5]:
+        days_until = (_parse_pt_date(r["data"]) - today).days
+        tag = "Hoje" if days_until == 0 else "Amanhã" if days_until == 1 else f"Faltam {days_until} dias"
+        proximas_reservas.append({
+            **r,
+            "data_br": formatar_data_br(r["data"]),
+            "tag": tag,
+        })
+
+    proxima = proximas_reservas[0] if proximas_reservas else None
+    proxima_tag = proxima["tag"] if proxima else None
 
     return {
         "chart_rooms": chart_rooms,
@@ -131,6 +147,7 @@ def professor_dashboard_data(user_name: str, my_reservas: list, periodo_label: s
         "proxima_tag": proxima_tag,
         "insights": insights,
         "user_first_names": " ".join(user_name.split(" ")[:2]),
+        "proximas_reservas": proximas_reservas,
     }
 
 
@@ -235,3 +252,60 @@ def admin_coord_dashboard_data(solicitacoes: list, salas: list, membros: list | 
         "ocupacao": occupancy,
         "recentes": recentes,
     }
+
+
+def _chave_ordenacao_historico(sol: dict) -> datetime:
+    data_str = formatar_data_br(sol.get("data", ""))
+    hora_str = sol.get("inicio", "00:00")
+    try:
+        return datetime.strptime(f"{data_str} {hora_str}", "%d/%m/%Y %H:%M")
+    except ValueError:
+        return datetime.min
+
+
+def historico_reservas_dashboard(user: dict, solicitacoes: list | None = None) -> list[dict]:
+    """
+    Retorna o histórico completo de reservas para o Dashboard:
+    - Administrador: todas as reservas/solicitações da instituição.
+    - Coordenador: solicitações que exigem autorização do seu núcleo + suas próprias reservas.
+    """
+    lista = solicitacoes if solicitacoes is not None else st.session_state.get("solicitacoes", [])
+    role = user.get("role", "")
+    nome = (user.get("nome") or "").strip().lower()
+    uid = st.session_state.get("user_uid")
+    nucleo = user.get("nucleo")
+
+    if role == "Administrador":
+        filtradas = list(lista)
+    elif role == "Coordenador":
+        filtradas = []
+        for s in lista:
+            eh_propria = (uid and s.get("solicitanteUid") == uid) or (
+                nome and (s.get("solicitante") or "").strip().lower() == nome
+            )
+            eh_do_nucleo = s.get("tipo") == "auth_required" and (
+                not nucleo
+                or not s.get("nucleoSolicitante")
+                or s.get("nucleoSolicitante") == nucleo
+            )
+            if eh_propria or eh_do_nucleo:
+                filtradas.append(s)
+    else:
+        return []
+
+    filtradas.sort(key=_chave_ordenacao_historico, reverse=True)
+
+    return [
+        {
+            "Data": formatar_data_br(s.get("data", "")),
+            "Horário": f"{s.get('inicio', '')}–{s.get('fim', '')}",
+            "Ambiente": s.get("sala", ""),
+            "Bloco": s.get("bloco", ""),
+            "Solicitante": s.get("solicitante", ""),
+            "Perfil": s.get("solicitanteRole") or "—",
+            "Status": s.get("status", ""),
+            "Decisão por": s.get("aprovadoPor") or "—",
+            "Motivo / Obs.": s.get("observacao") or s.get("motivo") or "—",
+        }
+        for s in filtradas
+    ]

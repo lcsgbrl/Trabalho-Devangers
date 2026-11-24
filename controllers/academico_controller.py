@@ -129,10 +129,12 @@ def delete_turma(tid: int) -> None:
 # ── Disciplina ────────────────────────────────────────────────────────────────
 
 def add_disciplina(codigo: str, nome: str, nucleo_id: int, carga_horaria: int,
-                    turmas_ids: list | None = None) -> None:
+                    turmas_ids: list | None = None, professores_ids: list | None = None) -> dict:
     ss = st.session_state
-    m.add_disciplina(ss.disciplinas, _next_id(), codigo, nome, nucleo_id, carga_horaria, turmas_ids)
-
+    nova = m.add_disciplina(ss.disciplinas, _next_id(), codigo, nome, nucleo_id, carga_horaria, turmas_ids)
+    if professores_ids:
+        m.update_disciplina(ss.disciplinas, nova["id"], professoresIds=professores_ids)
+    return nova
 
 def update_disciplina(did: int, **kwargs) -> None:
     m.update_disciplina(st.session_state.disciplinas, did, **kwargs)

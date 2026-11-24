@@ -4,7 +4,7 @@
 from datetime import date, datetime, timedelta
 from utils.datetime_utils import agora_br, hoje_br
 import streamlit as st
-
+from utils.datetime_utils import agora_br, formatar_data_br, hoje_br
 from models import solicitacao_model
 
 PROF_PERIOD_DAYS = {
@@ -212,7 +212,7 @@ def admin_coord_dashboard_data(solicitacoes: list, salas: list, membros: list | 
 
     recentes = [
         {
-            "Ambiente": s["sala"], "Solicitante": s["solicitante"], "Data": s["data"],
+            "Ambiente": s["sala"], "Solicitante": s["solicitante"], "Data": formatar_data_br(s["data"]),
             "Horário": f"{s['inicio']}–{s['fim']}", "Status": s["status"],
         }
         for s in reversed(solicitacoes[-8:])

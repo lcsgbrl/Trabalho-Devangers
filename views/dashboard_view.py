@@ -4,7 +4,7 @@
 Toda a preparação de métricas/agregações vive em controllers.dashboard_controller;
 aqui só acontece a montagem dos gráficos (Plotly) e a renderização Streamlit.
 """
-
+from utils.datetime_utils import formatar_data_br
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -284,7 +284,7 @@ def professor_dashboard(user_name, my_reservas):
                 if proxima:
                     st.markdown(f"**{proxima['sala']}**")
                     st.caption(proxima["bloco"])
-                    st.write(f"📅 {proxima['data']}")
+                    st.write(f"📅 {formatar_data_br(proxima['data'])}")
                     st.write(f"🕒 {proxima['inicio']}–{proxima['fim']}")
                     st.write(f"👥 {proxima['pessoas']} participantes")
                     st.markdown(

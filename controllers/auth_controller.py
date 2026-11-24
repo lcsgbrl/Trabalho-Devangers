@@ -49,9 +49,13 @@ def fazer_login(email: str, senha: str):
         tuple: (sucesso: bool, mensagem: str)
     """
     init_auth_state()
+    email = (email or "").strip().lower()
     
     if not email or not senha:
-        return False, "E-mail e senha são obrigatórios"
+        return False, "E-mail e senha são obrigatórios."
+
+    if not auth_model.auth_utils.validar_email(email):
+        return False, "Informe um endereço de e-mail válido."
     
     sucesso, uid, mensagem = auth_model.fazer_login(email, senha)
     
@@ -131,19 +135,39 @@ def atualizar_senha(nova_senha: str):
 
 
 def update_current_user_profile(nome: str, email: str):
-    """Atualiza nome e e-mail no perfil usado pelas configurações."""
-    nome = nome.strip()
-    email = email.strip()
-    if not nome or not email:
+    """Atualiza nome e e-mail no perfil, no Firebase Auth e na sessão."""
+    if not is_logged_in():
+        return "Usuário não está logado."
+
+    nome_limpo = (nome or "").strip()
+    email_limpo = (email or "").strip().lower()
+
+    if not nome_limpo or not email_limpo:
         return "Nome e e-mail são obrigatórios."
 
-    sucesso, mensagem = atualizar_perfil({'nome': nome, 'email': email})
+    uid = st.session_state.user_uid
+    email_atual = st.session_state.get("user_email") or st.session_state.user_perfil.get("email", "")
+
+    sucesso, mensagem = auth_model.atualizar_dados_conta(
+        uid=uid,
+        nome=nome_limpo,
+        novo_email=email_limpo,
+        email_atual=email_atual,
+    )
+
     if sucesso:
-        st.session_state.user_nome = nome
-        st.session_state.user_email = email
-        st.session_state.user_perfil.update({'nome': nome, 'email': email})
+        st.session_state.user_nome = nome_limpo
+        st.session_state.user_email = email_limpo
+        st.session_state.user_perfil.update({"nome": nome_limpo, "email": email_limpo})
         st.session_state.current_user = st.session_state.user_perfil
+
+        for m in st.session_state.get("members", []):
+            if m.get("uid") == uid or (m.get("email") or "").lower() == email_atual.lower():
+                m["nome"] = nome_limpo
+                m["email"] = email_limpo
+                break
         return None
+
     return mensagem
 
 

@@ -211,6 +211,61 @@ def atualizar_perfil(uid: str, dados: dict):
         return False, f"Erro: {str(e)}"
 
 
+def atualizar_dados_conta(uid: str, nome: str, novo_email: str, email_atual: str):
+    """
+    Valida nome e e-mail, atualiza o Firebase Authentication (se o e-mail mudou)
+    e sincroniza os dados nas coleções `usuarios` e `membros`.
+    """
+    nome_limpo = (nome or "").strip()
+    email_limpo = (novo_email or "").strip().lower()
+    email_antigo = (email_atual or "").strip().lower()
+
+    if len(nome_limpo) < 3:
+        return False, "O nome deve ter no mínimo 3 caracteres."
+
+    if not auth_utils.validar_email(email_limpo):
+        return False, "Informe um endereço de e-mail válido (ex.: nome@dominio.com)."
+    
+    if not auth_utils.dominio_email_existe(email_limpo):
+        return False, "O domínio deste e-mail não existe ou não recebe mensagens."
+
+    # 1. Se o e-mail foi alterado, atualiza primeiro no Firebase Authentication
+    if email_limpo != email_antigo:
+        sucesso_auth, msg_auth = auth_utils.atualizar_email(uid, email_limpo)
+        if not sucesso_auth:
+            return False, msg_auth.replace("❌ ", "")
+
+    # 2. Atualiza no Firestore (coleção `usuarios` e `membros`)
+    try:
+        db = st.session_state.firestore_db
+        db.collection("usuarios").document(uid).update({
+            "nome": nome_limpo,
+            "email": email_limpo,
+            "atualizado_em": datetime.now(),
+        })
+
+        # Sincroniza também na coleção `membros` (por uid ou e-mail antigo)
+        membros_ref = db.collection("membros")
+        docs_por_uid = list(membros_ref.where("uid", "==", uid).limit(1).stream())
+        alvo_doc = docs_por_uid[0] if docs_por_uid else next(
+            membros_ref.where("email", "==", email_antigo).limit(1).stream(),
+            None,
+        )
+        if alvo_doc:
+            membros_ref.document(alvo_doc.id).update({
+                "nome": nome_limpo,
+                "email": email_limpo,
+            })
+
+        return True, "Perfil atualizado com sucesso."
+
+    except Exception as e:
+        # Reverte o e-mail no Firebase Auth caso o Firestore falhe
+        if email_limpo != email_antigo:
+            auth_utils.atualizar_email(uid, email_antigo)
+        return False, f"Erro ao salvar perfil no banco de dados: {e}"
+
+
 def atualizar_senha(uid: str, nova_senha: str):
     """Atualiza a senha no Firebase Authentication."""
     if not auth_utils.validar_senha(nova_senha):
@@ -316,5 +371,3 @@ def concluir_primeiro_acesso(
 
     except Exception as e:
         return False, f"Erro ao concluir primeiro acesso: {str(e)}"
-    
-        return False, f"Erro: {str(e)}"

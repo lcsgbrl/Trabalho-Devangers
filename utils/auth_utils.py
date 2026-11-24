@@ -7,7 +7,8 @@ import secrets
 import smtplib
 import string
 from email.message import EmailMessage
-
+import dns.resolver
+import re
 import streamlit as st
 import firebase_admin
 import requests
@@ -229,33 +230,39 @@ def listar_usuarios():
 
 
 def validar_email(email: str) -> bool:
-    """Valida formato de email - simples"""
-    # Validação básica: Tem @ e tem um ponto após o @
-    if not email:
+    """Valida rigorosamente o formato de e-mail."""
+    if not email or not isinstance(email, str):
         return False
-    
+
     email = email.strip()
-    
-    # Verificar @ e extensão
-    if '@' not in email:
+    if len(email) > 254 or " " in email:
         return False
-    
-    local, domain = email.rsplit('@', 1)
-    
-    # Local não pode ser vazio
-    if not local:
+
+    padrao = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    if not re.match(padrao, email):
         return False
-    
-    # Domain deve ter um ponto
-    if '.' not in domain:
+
+    local, domain = email.rsplit("@", 1)
+    if ".." in local or ".." in domain or domain.startswith("-") or domain.endswith("-"):
         return False
-    
-    # Não pode ter espaços
-    if ' ' in email:
-        return False
-    
+
     return True
 
+
+def dominio_email_existe(email: str) -> bool:
+    """Verifica via DNS (registros MX/A) se o domínio do e-mail existe e recebe mensagens."""
+    if not validar_email(email):
+        return False
+    dominio = email.strip().rsplit("@", 1)[1].lower()
+    try:
+        respostas = dns.resolver.resolve(dominio, "MX", lifetime=5.0)
+        return len(respostas) > 0
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.exception.Timeout):
+        return False
+    except Exception:
+        # Se houver falha momentânea de rede no servidor, não trava o sistema
+        return True
+    
 
 def validar_senha(senha: str) -> bool:
     """Valida força da senha"""
@@ -318,3 +325,35 @@ def enviar_email_primeiro_acesso(destinatario: str, nome: str, senha_temporaria:
         return False, "Configuração [smtp] não encontrada em secrets.toml."
     except Exception as e:
         return False, f"Falha ao enviar e-mail SMTP: {e}"
+    
+
+
+def gerar_codigo_verificacao() -> str:
+    """Gera um código numérico de 6 dígitos."""
+    return "".join(secrets.choice(string.digits) for _ in range(6))
+
+
+def enviar_codigo_confirmacao_email(destinatario: str, nome: str, codigo: str) -> tuple[bool, str]:
+    """Envia código de 6 dígitos para confirmar que o novo e-mail existe antes de salvar."""
+    try:
+        smtp_cfg = st.secrets["smtp"]
+        remetente = smtp_cfg["email_remetente"]
+        senha_app = smtp_cfg["senha_app"].replace(" ", "")
+
+        msg = EmailMessage()
+        msg["Subject"] = "SGA - Código de confirmação de e-mail"
+        msg["From"] = f"Sistema de Gestão de Ambientes <{remetente}>"
+        msg["To"] = destinatario
+        msg.set_content(
+            f"Olá, {nome}!\n\n"
+            f"Seu código para confirmar a alteração de e-mail no SGA é: {codigo}\n\n"
+            "Se você não solicitou esta alteração, ignore esta mensagem."
+        )
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
+            server.login(remetente, senha_app)
+            server.send_message(msg)
+
+        return True, "Código enviado com sucesso."
+    except Exception as e:
+        return False, f"Não foi possível enviar o código para este e-mail: {e}"

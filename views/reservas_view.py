@@ -8,7 +8,7 @@ from utils.datetime_utils import agora_br, hoje_br
 from controllers import auth_controller, reservas_controller as rc
 from models import domain_data as data
 from views.components import TEXT_MUTED, badge_html
-
+from utils.datetime_utils import agora_br, formatar_data_br, hoje_br
 
 # ── Modal: Nova sala (Admin) ─────────────────────────────────────────────────
 
@@ -179,7 +179,10 @@ def solicitacao_modal():
     c1, c2, c3 = st.columns(3)
 
     data_res = c1.date_input(
-        "Data *", min_value=hoje_br(), value=hoje_br()
+        "Data *",
+        min_value=hoje_br(),
+        value=hoje_br(),
+        format="DD/MM/YYYY",
     )
     inicio = c2.time_input("Início *", value=time(8, 0))
     fim = c3.time_input("Término *", value=time(10, 0))
@@ -284,7 +287,7 @@ def solicitacao_modal():
 @st.dialog("Recusar solicitação")
 def recusar_modal(sol):
     st.caption(
-        f'{sol["sala"]} · {sol["data"]} · {sol["inicio"]}–{sol["fim"]}'
+        f'{sol["sala"]} · {formatar_data_br(sol["data"])} · {sol["inicio"]}–{sol["fim"]}'
     )
 
     motivo = st.text_area("Motivo da recusa *")
@@ -333,7 +336,7 @@ def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user, conte
         cc1, cc2, cc3, cc4 = st.columns(4)
 
         cc1.markdown(
-            f"<small style='color:{TEXT_MUTED}'>Data</small><br/><b>{s['data']}</b>",
+            f"<small style='color:{TEXT_MUTED}'>Data</small><br/><b>{formatar_data_br(s['data'])}</b>",
             unsafe_allow_html=True,
         )
         cc2.markdown(
@@ -354,7 +357,7 @@ def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user, conte
 
         if s.get("aprovadoPor"):
             st.caption(
-                f"Decisão por: {s['aprovadoPor']} · {s.get('dataAprovacao', '')}"
+                f"Decisão por: {s['aprovadoPor']} · {formatar_data_br(s.get('dataAprovacao', ''))}"
             )
 
         if s.get("observacao"):

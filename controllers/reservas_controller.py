@@ -1,4 +1,4 @@
-# -- coding: utf-8 --
+# -*- coding: utf-8 -*-
 """
 [CONTROLLER] Salas (ambientes) e Solicitações/Reservas.
 
@@ -28,12 +28,18 @@ def add_sala(sala: dict) -> dict:
     return sala_model.add_sala(st.session_state.salas, sala)
 
 
-def update_sala(sala_id: int, data_new: dict) -> None:
-    sala_model.update_sala(st.session_state.salas, sala_id, data_new)
+def update_sala(sala_id: int, data_new: dict) -> int:
+    return sala_model.update_sala(st.session_state.salas, sala_id, data_new)
 
 
-def toggle_manutencao(sala_id: int) -> None:
-    sala_model.toggle_manutencao(st.session_state.salas, sala_id)
+def toggle_manutencao(sala_id: int) -> int:
+    return sala_model.toggle_manutencao(st.session_state.salas, sala_id)
+
+
+def delete_sala(sala_id: int) -> int:
+    return sala_model.delete_sala(
+        st.session_state.salas, st.session_state.solicitacoes, sala_id
+    )
 
 
 # ── Solicitações / Reservas ──────────────────────────────────────────────────
@@ -73,6 +79,11 @@ def recusar_solicitacao(sol_id: int, aprovado_por: str, obs: str) -> None:
 
 def cancelar_solicitacao(sol_id: int) -> None:
     solicitacao_model.cancelar_solicitacao(
+        st.session_state.solicitacoes, sol_id)
+
+
+def delete_solicitacao(sol_id: int) -> None:
+    solicitacao_model.delete_solicitacao(
         st.session_state.solicitacoes, sol_id)
 
 

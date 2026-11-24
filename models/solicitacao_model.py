@@ -1,13 +1,15 @@
-# -- coding: utf-8 --
+# -*- coding: utf-8 -*-
 """
 [MODEL] Entidade Solicitação / Reserva.
 
 Unifica validação de horários e conflitos com persistência no Firestore
-isolada por instituicao_id.
+isolada por instituicao_id e envio de notificações de status.
 """
-from utils.datetime_utils import agora_str
+
 from datetime import datetime
 import streamlit as st
+from models import notificacao_model
+from utils.datetime_utils import agora_str
 
 INSTITUICAO_PADRAO_ID = "inst_001"
 COLECAO_SOLICITACOES = "solicitacoes"
@@ -87,6 +89,7 @@ def add_solicitacao(solicitacoes: list, next_id: int, **kwargs) -> tuple[dict, i
             _doc_id(inst_id, next_id)).set(sol)
 
     solicitacoes.append(sol)
+    notificacao_model.notificar_novo_pedido_aprovador(sol)
     return sol, next_id + 1
 
 
@@ -122,6 +125,10 @@ def aprovar_solicitacao(solicitacoes: list, sol_id: int, aprovado_por: str, obs:
             if db:
                 db.collection(COLECAO_SOLICITACOES).document(
                     _doc_id(inst_id, sol_id)).update(updates)
+
+            notificacao_model.notificar_evento_solicitacao(
+                s, "aprovada", ator=aprovado_por, motivo=obs or ""
+            )
             return
 
 
@@ -143,6 +150,10 @@ def recusar_solicitacao(solicitacoes: list, sol_id: int, aprovado_por: str, obs:
                     "dataAprovacao": data_aprov,
                     "observacao": obs,
                 })
+
+            notificacao_model.notificar_evento_solicitacao(
+                s, "recusada", ator=aprovado_por, motivo=obs
+            )
             return
 
 
@@ -157,7 +168,24 @@ def cancelar_solicitacao(solicitacoes: list, sol_id: int) -> None:
                 db.collection(COLECAO_SOLICITACOES).document(_doc_id(inst_id, sol_id)).update({
                     "status": "Cancelado"
                 })
+
+            notificacao_model.notificar_evento_solicitacao(s, "cancelada")
             return
+
+
+def delete_solicitacao(solicitacoes: list, sol_id: int) -> None:
+    """Remove permanentemente uma solicitação/reserva do estado e do Firestore."""
+    inst_id = _get_instituicao_id()
+    alvo = next((s for s in solicitacoes if s["id"] == sol_id), None)
+
+    if alvo:
+        notificacao_model.notificar_evento_solicitacao(alvo, "excluida")
+
+    solicitacoes[:] = [s for s in solicitacoes if s["id"] != sol_id]
+
+    db = _get_db()
+    if db:
+        db.collection(COLECAO_SOLICITACOES).document(_doc_id(inst_id, sol_id)).delete()
 
 
 # ── Consultas ─────────────────────────────────────────────────────────────────

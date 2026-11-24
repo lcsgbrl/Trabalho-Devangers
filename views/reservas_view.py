@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """[VIEW] Reservas — equivalente a src/pages/Reservas.tsx."""
 
-from datetime import date, datetime, time
+from datetime import time
 
 import streamlit as st
-from utils.datetime_utils import agora_br, hoje_br
 from controllers import auth_controller, reservas_controller as rc
 from models import domain_data as data
 from views.components import TEXT_MUTED, badge_html
 from utils.datetime_utils import agora_br, formatar_data_br, hoje_br
 
-# ── Modal: Nova sala (Admin) ─────────────────────────────────────────────────
+
+# ── Modal: Nova / Editar sala (Admin) ────────────────────────────────────────
 
 @st.dialog("Sala", width="large")
 def sala_modal(sala=None):
@@ -25,13 +25,11 @@ def sala_modal(sala=None):
 
     c3, c4 = st.columns(2)
 
-    # Identifica se a sala já possui um tipo personalizado
     tipo_atual = sala.get("tipo", "") if editing else ""
     tipo_personalizado_atual = (
         tipo_atual if tipo_atual not in data.TIPO_OPTIONS else ""
     )
 
-    # Se o tipo atual não estiver nas opções, seleciona "Outro"
     tipo_inicial = (
         tipo_atual if tipo_atual in data.TIPO_OPTIONS else "Outro"
     ) if editing else data.TIPO_OPTIONS[0]
@@ -42,7 +40,6 @@ def sala_modal(sala=None):
         index=data.TIPO_OPTIONS.index(tipo_inicial),
     )
 
-    # Campo adicional exibido somente quando "Outro" for selecionado
     tipo_personalizado = ""
 
     if tipo == "Outro":
@@ -53,7 +50,6 @@ def sala_modal(sala=None):
             key=f"tipo_personalizado_{sala['id'] if editing else 'nova'}",
         )
 
-    # Define o tipo definitivo que será salvo
     tipo_final = (
         tipo_personalizado.strip() if tipo == "Outro" else tipo
     )
@@ -127,13 +123,35 @@ def sala_modal(sala=None):
             }
 
             if editing:
-                rc.update_sala(sala["id"], payload)
-                st.toast(f'Sala "{nome}" atualizada!', icon="✅")
+                qtd_notificados = rc.update_sala(sala["id"], payload)
+                msg = f'Sala "{nome}" atualizada!'
+                if qtd_notificados:
+                    msg += f" ({qtd_notificados} reserva(s) afetada(s) notificada(s))."
+                st.toast(msg, icon="✅")
             else:
                 rc.add_sala(payload)
                 st.toast(f'Sala "{nome}" cadastrada!', icon="✅")
 
             st.rerun()
+
+    if editing:
+        st.divider()
+        with st.expander("🗑️ Excluir esta sala"):
+            st.warning(
+                f"A sala **{sala['nome']}** será removida permanentemente do sistema. "
+                "Qualquer reserva ativa nela será cancelada e os solicitantes receberão uma notificação."
+            )
+            if st.button(
+                "Confirmar exclusão permanente da sala",
+                key=f"confirm_del_sala_{sala['id']}",
+                use_container_width=True,
+            ):
+                qtd_notificados = rc.delete_sala(sala["id"])
+                msg = f'Sala "{sala["nome"]}" excluída!'
+                if qtd_notificados:
+                    msg += f" ({qtd_notificados} usuário(s) notificado(s))."
+                st.toast(msg, icon="🗑️")
+                st.rerun()
 
 
 # ── Modal: Nova solicitação / reserva ───────────────────────────────────────
@@ -284,6 +302,7 @@ def solicitacao_modal():
 
             st.rerun()
 
+
 @st.dialog("Recusar solicitação")
 def recusar_modal(sol):
     st.caption(
@@ -308,7 +327,7 @@ def recusar_modal(sol):
 
 # ── Cards ────────────────────────────────────────────────────────────────────
 
-def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user, contexto):
+def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user, contexto, can_delete=False):
     st_style = data.STATUS_SOL_STYLE.get(s["status"], data.STATUS_SOL_STYLE["Pendente"])
     is_pending = s["status"] in ("Pendente", "Em análise")
 
@@ -363,7 +382,7 @@ def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user, conte
         if s.get("observacao"):
             st.caption(f"Observação: _{s['observacao']}_")
 
-        bc1, bc2, bc3 = st.columns(3)
+        bc1, bc2, bc3, bc4 = st.columns(4)
 
         if is_pending and can_approve:
             if bc1.button("Aprovar", key=f"aprov_{contexto}_{s['id']}", use_container_width=True):
@@ -381,6 +400,12 @@ def solicitacao_card(s, can_approve, can_reject, can_cancel, current_user, conte
         if can_cancel and s["status"] != "Cancelado":
             if bc3.button("Cancelar", key=f"canc_{contexto}_{s['id']}", use_container_width=True):
                 rc.cancelar_solicitacao(s["id"])
+                st.rerun()
+
+        if can_delete:
+            if bc4.button("🗑️ Excluir", key=f"del_{contexto}_{s['id']}", use_container_width=True):
+                rc.delete_solicitacao(s["id"])
+                st.toast("Registro de reserva excluído!", icon="🗑️")
                 st.rerun()
 
 
@@ -462,7 +487,19 @@ def render():
             else "Todas as Reservas"
         )
 
-    tabs = st.tabs(tab_labels)
+    destino_aba = st.session_state.pop("reservas_tab_destino", None)
+    default_tab = None
+    if destino_aba == "minhas":
+        default_tab = tab_labels[1]
+    elif destino_aba == "aprovacoes" and len(tab_labels) > 2:
+        default_tab = tab_labels[2]
+    elif destino_aba == "ambientes":
+        default_tab = tab_labels[0]
+
+    try:
+        tabs = st.tabs(tab_labels, default=default_tab) if default_tab else st.tabs(tab_labels)
+    except TypeError:
+        tabs = st.tabs(tab_labels)
 
     # ── Ambientes ──
     with tabs[0]:
@@ -518,7 +555,12 @@ def render():
                             manut_label = "✓ Ativar"
 
                         if manut_label and ac2.button(manut_label, key=f"manut_{s['id']}", use_container_width=True):
-                            rc.toggle_manutencao(s["id"])
+                            qtd_notif = rc.toggle_manutencao(s["id"])
+                            if qtd_notif:
+                                st.toast(
+                                    f"Sala em manutenção ({qtd_notif} reserva(s) afetada(s) notificada(s)).",
+                                    icon="⚠️",
+                                )
                             st.rerun()
 
         if is_admin:
@@ -545,6 +587,7 @@ def render():
                         can_cancel=s["status"] not in ("Cancelado", "Recusado"),
                         current_user=user["nome"],
                         contexto="minhas",
+                        can_delete=is_admin,
                     )
 
     # ── Aprovações / Todas ──
@@ -568,6 +611,7 @@ def render():
                             can_cancel=s["status"] != "Cancelado",
                             current_user=user["nome"],
                             contexto="todas",
+                            can_delete=True,
                         )
 
             elif is_professor:

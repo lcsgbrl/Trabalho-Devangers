@@ -19,6 +19,7 @@ def init_state() -> None:
     ss.route = "login"
     ss.logged_in = False
     ss.instituicao_id = "inst_001"
+    ss.lembretes_verificados = False
 
     ss.salas = []
     ss.solicitacoes = []
@@ -81,6 +82,7 @@ def limpar_dados_sessao() -> None:
     """Limpa os dados operacionais ao fazer logout."""
     ss = st.session_state
     ss.instituicao_id = "inst_001"
+    ss.lembretes_verificados = False
     ss.salas = []
     ss.solicitacoes = []
     ss._next_sol_id = 1

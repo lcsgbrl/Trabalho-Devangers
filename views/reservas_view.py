@@ -273,16 +273,13 @@ def solicitacao_modal():
             st.error(str(erro))
         else:
             if is_aluno:
-                st.success("Solicitação enviada! Sua solicitação foi enviada ao professor responsável e aguarda aprovação.")
+                st.toast("Solicitação enviada ao professor responsável!", icon="✅")
             elif needs_auth:
-                st.success("Aguardando autorização — sua solicitação foi encaminhada ao coordenador.")
+                st.toast("Solicitação encaminhada ao coordenador (Em análise).", icon="⏳")
             else:
-                st.success("Reserva confirmada com sucesso!")
+                st.toast("Reserva confirmada com sucesso!", icon="✅")
 
-            st.balloons()
-            if st.button("Fechar"):
-                st.rerun()
-
+            st.rerun()
 
 @st.dialog("Recusar solicitação")
 def recusar_modal(sol):

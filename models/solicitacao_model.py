@@ -165,15 +165,16 @@ def cancelar_solicitacao(solicitacoes: list, sol_id: int) -> None:
 def minhas_solicitacoes(
     solicitacoes: list, nome_usuario: str, usuario_uid: str | None = None
 ) -> list:
-    """Retorna as reservas do usuário, priorizando o UID quando disponível."""
-    if usuario_uid:
-        return [
-            s for s in solicitacoes
-            if s.get("solicitanteUid") == usuario_uid
-            or (not s.get("solicitanteUid") and s.get("solicitante") == nome_usuario)
-        ]
+    """Retorna todas as reservas/solicitações do usuário (independente do status)."""
+    nome_norm = (nome_usuario or "").strip().lower()
+    resultado = []
+    for s in solicitacoes:
+        uid_sol = s.get("solicitanteUid")
+        nome_sol = (s.get("solicitante") or "").strip().lower()
 
-    return [s for s in solicitacoes if s.get("solicitante") == nome_usuario]
+        if (usuario_uid and uid_sol == usuario_uid) or (nome_norm and nome_sol == nome_norm):
+            resultado.append(s)
+    return resultado
 
 
 def pendentes_para_professor(solicitacoes: list, nome_professor: str) -> list:

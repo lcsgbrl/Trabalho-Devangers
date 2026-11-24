@@ -11,8 +11,7 @@ from models import domain_data as data
 
 # Papéis que podem gerenciar membros e quais funções cada um pode manipular
 MEMBER_MANAGEMENT_SCOPE = {
-    "Administrador": tuple(data.FUNCOES),  # Todos os perfis
-    "Coordenador": ("Professor",),        # Apenas professores
+    "Administrador": tuple(data.FUNCOES),  # Exclusivo do Administrador
 }
 
 

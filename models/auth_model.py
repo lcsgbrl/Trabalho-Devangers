@@ -10,6 +10,7 @@ import streamlit as st
 from datetime import datetime
 from firebase_admin import auth
 from utils import auth_utils
+from utils.datetime_utils import agora_br
 
 INSTITUICAO_PADRAO_ID = "inst_001"
 CODIGO_INSTITUICAO_PADRAO = "SGA2026"
@@ -90,7 +91,7 @@ def criar_nova_conta(
             "email": email,
             "role": "usuario",
             "instituicao_id": instituicao_id,
-            "criado_em": datetime.now(),
+            "criado_em": agora_br(),
             "ativo": True,
             "email_verificado": False,
         }
@@ -202,7 +203,7 @@ def atualizar_perfil(uid: str, dados: dict):
         db = st.session_state.firestore_db
         # Impede alteração acidental de instituicao_id pelo perfil comum
         dados_seguros = {k: v for k, v in dados.items() if k != "instituicao_id"}
-        dados_seguros["atualizado_em"] = datetime.now()
+        dados_seguros["atualizado_em"] = agora_br()
 
         db.collection("usuarios").document(uid).update(dados_seguros)
         return True, "Perfil atualizado."
@@ -241,7 +242,7 @@ def atualizar_dados_conta(uid: str, nome: str, novo_email: str, email_atual: str
         db.collection("usuarios").document(uid).update({
             "nome": nome_limpo,
             "email": email_limpo,
-            "atualizado_em": datetime.now(),
+            "atualizado_em": agora_br(),
         })
 
         # Sincroniza também na coleção `membros` (por uid ou e-mail antigo)
@@ -345,7 +346,7 @@ def concluir_primeiro_acesso(
             "materia": materia.strip(),
             "primeiro_acesso": False,
             "email_verificado": True,
-            "atualizado_em": datetime.now(),
+            "atualizado_em": agora_br(),
         }
         doc_ref.update(atualizacoes)
 

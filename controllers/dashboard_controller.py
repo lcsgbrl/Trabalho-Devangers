@@ -2,7 +2,7 @@
 """Preparação dos indicadores exibidos no Dashboard a partir dos dados atuais."""
 
 from datetime import date, datetime, timedelta
-
+from utils.datetime_utils import agora_br, hoje_br
 import streamlit as st
 
 from models import solicitacao_model
@@ -60,7 +60,7 @@ def listar_membros() -> list:
 
 
 def professor_dashboard_data(user_name: str, my_reservas: list, periodo_label: str) -> dict:
-    today = date.today()
+    today = hoje_br()
     days = PROF_PERIOD_DAYS[periodo_label]
     valid = [r for r in my_reservas if r["status"] not in ("Cancelado", "Recusado")]
     period_reservas = [
@@ -140,9 +140,9 @@ def admin_coord_dashboard_data(solicitacoes: list, salas: list, membros: list | 
     aprovados = [s for s in solicitacoes if s["status"] == "Aprovado"]
     pendentes = [s for s in solicitacoes if s["status"] in ("Pendente", "Em análise")]
 
-    today = date.today()
+    today = hoje_br()
     yesterday = today - timedelta(days=1)
-    now = datetime.now()
+    now = agora_br()
     now_minutes = now.hour * 60 + now.minute
 
     reservas_hoje = [s for s in valid if _parse_pt_date(s["data"]) == today]

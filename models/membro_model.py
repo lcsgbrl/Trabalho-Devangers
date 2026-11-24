@@ -8,6 +8,7 @@ sincronizando cada operação com o Firestore isolada por instituicao_id.
 from datetime import datetime
 from utils import auth_utils
 import streamlit as st
+from utils.datetime_utils import agora_br
 
 INSTITUICAO_PADRAO_ID = "inst_001"
 COLECAO_MEMBROS = "membros"
@@ -17,6 +18,16 @@ MAPA_FUNCAO_ROLE = {
     "Professor": "professor",
     "Coordenador": "Coordenador",
     "Administrador": "admin",
+}
+MAPA_ROLE_FUNCAO = {
+    "admin": "Administrador",
+    "Administrador": "Administrador",
+    "Coordenador": "Coordenador",
+    "coordenador": "Coordenador",
+    "professor": "Professor",
+    "Professor": "Professor",
+    "usuario": "Aluno",
+    "Aluno": "Aluno",
 }
 
 
@@ -74,7 +85,11 @@ def _excluir_usuario_completo(db, alvo: dict, inst_id: str) -> None:
 
 
 def listar_membros_firestore(instituicao_id: str | None = None) -> tuple[list, int]:
-    """Busca todos os membros da instituição no Firestore e devolve (lista, proximo_id)."""
+    """
+    Busca todos os membros da instituição no Firestore, importa automaticamente
+    usuários da coleção 'usuarios' que ainda não possuam registro em 'membros'
+    e devolve (lista, proximo_id).
+    """
     db = _get_db()
     if not db:
         return [], 1
@@ -87,6 +102,47 @@ def listar_membros_firestore(instituicao_id: str | None = None) -> tuple[list, i
     )
 
     membros = [doc.to_dict() for doc in docs]
+    emails_existentes = {
+        (m.get("email") or "").strip().lower() for m in membros
+    }
+    next_id = max((m.get("id", 0) for m in membros), default=0) + 1
+
+    # Sincroniza usuários da coleção 'usuarios' que ainda não estão em 'membros'
+    for u_doc in db.collection(COLECAO_USUARIOS).stream():
+        u = u_doc.to_dict() or {}
+        u_inst = u.get("instituicao_id")
+
+        # Se for usuário antigo sem instituicao_id na instituição padrão, vincula agora
+        if not u_inst and inst_id == INSTITUICAO_PADRAO_ID:
+            u_inst = inst_id
+            db.collection(COLECAO_USUARIOS).document(u_doc.id).update({
+                "instituicao_id": inst_id
+            })
+
+        if u_inst != inst_id:
+            continue
+
+        email_u = (u.get("email") or "").strip().lower()
+        if email_u and email_u not in emails_existentes:
+            nome_u = (u.get("nome") or email_u.split("@")[0]).strip()
+            novo_membro = {
+                "id": next_id,
+                "uid": u.get("uid") or u_doc.id,
+                "nome": nome_u,
+                "email": (u.get("email") or "").strip(),
+                "funcao": MAPA_ROLE_FUNCAO.get(u.get("role", ""), "Aluno"),
+                "status": "Ativo" if u.get("ativo", True) else "Inativo",
+                "instituicao_id": inst_id,
+                "initials": make_initials(nome_u),
+                "source": "existing",
+                "nucleo": u.get("nucleo"),
+                "turma": u.get("turma"),
+            }
+            db.collection(COLECAO_MEMBROS).document(_doc_id(inst_id, next_id)).set(novo_membro)
+            membros.append(novo_membro)
+            emails_existentes.add(email_u)
+            next_id += 1
+
     membros.sort(key=lambda m: m.get("id", 0))
     next_id = max((m.get("id", 0) for m in membros), default=0) + 1
     return membros, next_id
@@ -139,11 +195,11 @@ def add_member_directly(members: list, next_id: int, m: dict) -> tuple[dict, int
                 "ativo": m.get("status", "Ativo") == "Ativo",
                 "email_verificado": False,
                 "primeiro_acesso": True,
-                "criado_em": datetime.now(),
+                "criado_em": agora_br(),
             }
             db.collection(COLECAO_USUARIOS).document(uid).set(perfil_usuario)
 
-            # 3. Envia automaticamente o e-mail com a senha temporária (AQUI!)
+            # 3. Envia automaticamente o e-mail com a senha temporária
             enviado, msg_email = auth_utils.enviar_email_primeiro_acesso(
                 email, nome, senha_temp
             )

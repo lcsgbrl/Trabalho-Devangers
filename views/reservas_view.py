@@ -4,7 +4,7 @@
 from datetime import date, datetime, time
 
 import streamlit as st
-
+from utils.datetime_utils import agora_br, hoje_br
 from controllers import auth_controller, reservas_controller as rc
 from models import domain_data as data
 from views.components import TEXT_MUTED, badge_html
@@ -179,7 +179,7 @@ def solicitacao_modal():
     c1, c2, c3 = st.columns(3)
 
     data_res = c1.date_input(
-        "Data *", min_value=date.today(), value=date.today()
+        "Data *", min_value=hoje_br(), value=hoje_br()
     )
     inicio = c2.time_input("Início *", value=time(8, 0))
     fim = c3.time_input("Término *", value=time(10, 0))
@@ -188,7 +188,7 @@ def solicitacao_modal():
 
     if fim <= inicio:
         time_error = "O horário de término deve ser posterior ao de início."
-    elif data_res == date.today() and inicio < datetime.now().time():
+    elif data_res == hoje_br() and inicio < agora_br().time():
         time_error = "O horário de início já passou. Escolha um horário futuro."
 
     if time_error:

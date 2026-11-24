@@ -15,19 +15,42 @@ from views.components import PRIMARY, TEXT_MUTED, badge_html
 
 def bar_chart(x, y, colors=None, height=260, horizontal=False):
     if horizontal:
-        fig = go.Figure(go.Bar(y=x, x=y, orientation="h", marker_color=colors or PRIMARY))
+        fig = go.Figure(
+            go.Bar(
+                y=x,
+                x=y,
+                orientation="h",
+                marker=dict(color=colors or PRIMARY, cornerradius=6),
+                hovertemplate="<b>%{y}</b><br>Reservas: %{x}<extra></extra>",
+            )
+        )
+        fig.update_layout(
+            height=height,
+            margin=dict(l=10, r=18, t=10, b=10),
+            plot_bgcolor="#FFFFFF",
+            paper_bgcolor="#FFFFFF",
+            font=dict(color=TEXT_MUTED, size=12),
+            xaxis=dict(showgrid=True, gridcolor="#F3EFEA", zeroline=False, dtick=1),
+            yaxis=dict(showgrid=False, zeroline=False),
+        )
     else:
-        fig = go.Figure(go.Bar(x=x, y=y, marker_color=colors or PRIMARY))
-
-    fig.update_layout(
-        height=height,
-        margin=dict(l=10, r=10, t=10, b=10),
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        font=dict(color=TEXT_MUTED, size=11),
-        xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=True, gridcolor="#F3EFEA"),
-    )
+        fig = go.Figure(
+            go.Bar(
+                x=x,
+                y=y,
+                marker=dict(color=colors or PRIMARY, cornerradius=6),
+                hovertemplate="<b>%{x}</b><br>Reservas: %{y}<extra></extra>",
+            )
+        )
+        fig.update_layout(
+            height=height,
+            margin=dict(l=10, r=10, t=10, b=10),
+            plot_bgcolor="#FFFFFF",
+            paper_bgcolor="#FFFFFF",
+            font=dict(color=TEXT_MUTED, size=12),
+            xaxis=dict(showgrid=False, zeroline=False),
+            yaxis=dict(showgrid=True, gridcolor="#F3EFEA", zeroline=False, dtick=1),
+        )
     return fig
 
 
@@ -204,6 +227,79 @@ def _status_style(value):
     }
     return styles.get(value, "")
 
+
+def _render_historico_reservas(user: dict, solicitacoes: list) -> None:
+    if user.get("role") not in ("Administrador", "Coordenador"):
+        return
+
+    historico = dc.historico_reservas_dashboard(user, solicitacoes)
+
+    with st.container(border=True):
+        with st.container(key="chart_box_historico"):
+            st.markdown("###### Histórico de Reservas")
+            st.caption(
+                "Registro completo de todas as reservas e solicitações da instituição."
+                if user.get("role") == "Administrador"
+                else "Histórico das solicitações do seu núcleo de coordenação e das suas reservas."
+            )
+
+            if not historico:
+                st.info("Nenhum registro de reserva encontrado até o momento.")
+                return
+
+            f1, f2, f3 = st.columns([1.2, 1.2, 2], gap="medium")
+
+            status_opcoes = ["Todos"] + sorted({r["Status"] for r in historico if r["Status"]})
+            status_sel = f1.selectbox("Status", status_opcoes, key="dash_hist_status")
+
+            salas_opcoes = ["Todos"] + sorted({r["Ambiente"] for r in historico if r["Ambiente"]})
+            sala_sel = f2.selectbox("Ambiente", salas_opcoes, key="dash_hist_sala")
+
+            busca = f3.text_input(
+                "Buscar solicitante ou observação",
+                placeholder="Ex.: Prof. Carlos, aula prática…",
+                key="dash_hist_busca",
+            ).strip().lower()
+
+            filtradas = historico
+            if status_sel != "Todos":
+                filtradas = [r for r in filtradas if r["Status"] == status_sel]
+            if sala_sel != "Todos":
+                filtradas = [r for r in filtradas if r["Ambiente"] == sala_sel]
+            if busca:
+                filtradas = [
+                    r for r in filtradas
+                    if busca in r["Solicitante"].lower()
+                    or busca in r["Ambiente"].lower()
+                    or busca in r["Motivo / Obs."].lower()
+                ]
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Total exibido", len(filtradas))
+            m2.metric("Aprovadas", sum(1 for r in filtradas if r["Status"] == "Aprovado"))
+            m3.metric(
+                "Pendentes / Em análise",
+                sum(1 for r in filtradas if r["Status"] in ("Pendente", "Em análise")),
+            )
+            m4.metric(
+                "Canceladas / Recusadas",
+                sum(1 for r in filtradas if r["Status"] in ("Cancelado", "Recusado")),
+            )
+
+            hist_df = pd.DataFrame(filtradas)
+            if hist_df.empty:
+                st.info("Nenhuma reserva encontrada com os filtros selecionados.")
+            else:
+                styler = hist_df.style
+                apply_style = getattr(styler, "map", None) or styler.applymap
+                table_data = apply_style(_status_style, subset=["Status"])
+                st.dataframe(
+                    table_data,
+                    hide_index=True,
+                    use_container_width=True,
+                )
+
+
 # ── Dashboard do Professor ───────────────────────────────────────────────────
 def professor_dashboard(user_name, my_reservas):
     st.markdown('<div class="sga-eyebrow">VISÃO PESSOAL</div>', unsafe_allow_html=True)
@@ -341,9 +437,34 @@ def professor_dashboard(user_name, my_reservas):
             for ins in d["insights"]:
                 st.markdown(f"- {ins}")
 
+    with st.container(border=True):
+        with st.container(key="chart_box_proximas_reservas"):
+            st.markdown("###### Reservas que estão se aproximando")
+            st.caption("Suas próximas reservas agendadas em ordem cronológica.")
+
+            proximas = d.get("proximas_reservas", [])
+            if not proximas:
+                st.info("Você não possui reservas futuras agendadas no momento.")
+            else:
+                for item in proximas:
+                    with st.container(border=True):
+                        p1, p2, p3 = st.columns([2.2, 1.8, 1])
+                        with p1:
+                            st.markdown(f"**{item['sala']}**")
+                            st.caption(f"{item.get('bloco', '')} · 👥 {item.get('pessoas', 0)} participantes")
+                        with p2:
+                            st.write(f"📅 **{item['data_br']}**")
+                            st.caption(f"🕒 {item['inicio']}–{item['fim']}")
+                        with p3:
+                            st.markdown(
+                                badge_html(item["tag"], "#FFF0F2", PRIMARY),
+                                unsafe_allow_html=True,
+                            )
+
+
 # ── Dashboard do Admin / Coordenador ─────────────────────────────────────────
 
-def admin_coord_dashboard(solicitacoes, salas, pending_for_me, is_admin):
+def admin_coord_dashboard(user, solicitacoes, salas, pending_for_me, is_admin):
     st.markdown('<div class="sga-eyebrow">VISÃO GERAL</div>', unsafe_allow_html=True)
     st.markdown("<div class='sga-title'>Dashboard</div>", unsafe_allow_html=True)
 
@@ -467,30 +588,24 @@ def admin_coord_dashboard(solicitacoes, salas, pending_for_me, is_admin):
 
                 if d["ocupacao"]:
                     for r in d["ocupacao"]:
-                        st.write(f"**{r['sala']}** — {r['taxa']}%")
-                        st.progress(r["taxa"] / 100)
+                        taxa = r["taxa"]
+                        cor = r.get("cor", "#8B0019")
+                        st.markdown(
+                            f"""
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 4px 0;">
+                                <span style="font-weight:600;color:#1E1B15;font-size:0.92rem;">{r['sala']}</span>
+                                <span style="font-weight:700;color:{cor};background:#FAF9F6;border:1px solid #E7E0D5;padding:2px 9px;border-radius:999px;font-size:0.78rem;">{taxa}%</span>
+                            </div>
+                            <div style="width:100%;height:8px;background:#F3EFEA;border-radius:999px;overflow:hidden;">
+                                <div style="width:{min(100, max(0, taxa))}%;height:100%;background:{cor};border-radius:999px;"></div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
                 else:
                     st.error("Cadastre ambientes para visualizar a ocupação.")
 
-    st.markdown("###### Reservas Recentes")
-
-    recentes_df = pd.DataFrame(
-        d["recentes"],
-        columns=["Ambiente", "Solicitante", "Data", "Horário", "Status"],
-    )
-
-    if recentes_df.empty:
-        table_data = recentes_df
-    else:
-        styler = recentes_df.style
-        apply_style = getattr(styler, "map", None) or styler.applymap
-        table_data = apply_style(_status_style, subset=["Status"])
-
-    st.dataframe(
-        table_data,
-        hide_index=True,
-        use_container_width=True,
-    )
+    _render_historico_reservas(user, solicitacoes)
 
 
 # ── Renderização ─────────────────────────────────────────────────────────────
@@ -519,6 +634,7 @@ def render():
     from controllers import reservas_controller
 
     admin_coord_dashboard(
+        user,
         reservas_controller.list_solicitacoes(),
         reservas_controller.list_salas(),
         pending_for_me,
